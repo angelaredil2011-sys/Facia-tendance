@@ -45,9 +45,27 @@
       touch-action: manipulation;
     }
 
-    /* Mirror video display for front camera */
+    /* Mirror video & canvas display for front camera */
     .mirror {
       transform: scaleX(-1);
+    }
+
+    /* Animated laser scanline during active scanning */
+    @keyframes scanSweep {
+      0% { top: 8%; opacity: 0.2; }
+      50% { top: 88%; opacity: 0.95; }
+      100% { top: 8%; opacity: 0.2; }
+    }
+    .scan-beam {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #38bdf8, #60a5fa, #38bdf8, transparent);
+      box-shadow: 0 0 12px 2px rgba(56, 189, 248, 0.8);
+      animation: scanSweep 2.2s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 15;
     }
 
     /* Custom thin scrollbars */
@@ -73,7 +91,7 @@
       </div>
       <div>
         <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
-        <p class="text-[10px] text-[#64748b]">Biometric Terminal v2.4</p>
+        <p class="text-[10px] text-[#64748b]" id="engine-tag">Biometric Terminal v2.5 Mobile</p>
       </div>
     </div>
     
@@ -87,28 +105,45 @@
   <!-- Main Viewport -->
   <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
 
-    <!-- Camera Stage Viewport -->
-    <div class="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
+    <!-- Camera Stage Viewport (Adapts cleanly to mobile portrait/landscape sensors) -->
+    <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
       
       <!-- Video Element with mobile inline streaming attributes -->
       <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
       
       <!-- Canvas Overlay -->
-      <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none"></canvas>
+      <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
+
+      <!-- Active Scanline Beam -->
+      <div id="scan-beam" class="scan-beam hidden"></div>
+
+      <!-- Top-Left Telemetry Pills (Mesh & Face Lock Status) -->
+      <div class="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
+        <span id="telemetry-face" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-gray-300 flex items-center gap-1.5">
+          <span id="telemetry-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span id="telemetry-text">NO FACE</span>
+        </span>
+        <span id="telemetry-mesh" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-sky-400">
+          MESH: 0 PTS
+        </span>
+      </div>
 
       <!-- Camera Action Floating Controls -->
-      <div class="absolute top-3 right-3 z-20 flex gap-2">
-        <button id="btn-start-cam" class="h-8 px-3 rounded-md bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
-          <i class="fa-solid fa-video text-[10px]"></i>
-          <span id="cam-btn-text">Start Cam</span>
+      <div class="absolute top-3 right-3 z-20 flex gap-1.5">
+        <button id="btn-mesh-toggle" title="Toggle Face Mesh" class="w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+          <i class="fa-solid fa-draw-polygon text-xs"></i>
         </button>
-        <button id="btn-flip" title="Switch Camera" class="w-8 h-8 rounded-md bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+        <button id="btn-start-cam" class="h-8 px-2.5 rounded-md bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+          <i class="fa-solid fa-video text-[10px]"></i>
+          <span id="cam-btn-text">Start</span>
+        </button>
+        <button id="btn-flip" title="Switch Camera" class="w-8 h-8 rounded-md bg-black/65 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
           <i class="fa-solid fa-camera-rotate text-xs"></i>
         </button>
       </div>
 
       <!-- Formal Status HUD Banner -->
-      <div id="banner" class="absolute bottom-0 inset-x-0 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
+      <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
         Initializing System Models…
       </div>
     </div>
@@ -125,14 +160,22 @@
         </span>
       </div>
 
-      <button id="btn-verify" disabled 
-              class="w-full h-12 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
-        <i class="fa-solid fa-expand text-xs"></i>
-        <span>Scan & Identify</span>
-      </button>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="btn-verify" disabled 
+                class="col-span-2 h-12 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
+          <i class="fa-solid fa-expand text-xs"></i>
+          <span>Scan & Identify</span>
+        </button>
+
+        <button id="btn-auto-scan" disabled
+                class="col-span-1 h-12 bg-[#1f293d] hover:bg-gray-800 disabled:opacity-40 border border-gray-700 text-gray-200 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md">
+          <i id="auto-scan-icon" class="fa-solid fa-radar text-xs text-sky-400 mb-0.5"></i>
+          <span id="auto-scan-text">Auto: OFF</span>
+        </button>
+      </div>
 
       <p class="text-[11px] text-[#64748b] text-center">
-        Position your face clearly within the box and tap Scan to verify identity.
+        Align your face inside the reticle. Tap <strong class="text-gray-400">Scan</strong> or enable <strong class="text-gray-400">Auto</strong> for hands-free mobile verification.
       </p>
     </div>
 
@@ -252,21 +295,43 @@
     let isCameraActive = false;
     let isModelReady = false;
     let isDetecting = false;
+    let showMesh = true;
+    let autoScanEnabled = false;
+    let lastAutoScanTime = 0;
+    let scanPulseUntil = 0;
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     const say = (msg, cls = '') => { 
       banner.textContent = msg; 
-      banner.className = 'absolute bottom-0 inset-x-0 py-2 px-3 text-center text-xs font-semibold backdrop-blur-md transition-colors duration-300 ' + 
+      banner.className = 'absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold backdrop-blur-md transition-colors duration-300 ' + 
         (cls === 'ok' ? 'bg-emerald-700/90 text-white' : cls === 'bad' ? 'bg-rose-700/90 text-white' : 'bg-black/80 text-gray-300 border-t border-white/10');
+      
+      const badge = $('status-badge');
+      if (cls === 'ok') {
+        badge.textContent = 'Verified';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      } else if (cls === 'bad') {
+        badge.textContent = 'Denied';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
+      } else {
+        badge.textContent = isCameraActive ? 'Active' : 'Standby';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
+      }
     };
 
-    /* ---------- Human: BlazeFace detector + FaceRes embedding ---------- */
-    const human = new Human({
+    /* ---------- Human Configuration Optimized for Mobile & Desktop ---------- */
+    const baseConfig = {
       backend: 'webgl',
+      wasmPath: 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/',
       modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human-models/models/',
+      async: true,
+      warmup: 'none',
+      cacheSensitivity: isMobile ? 0.85 : 0.75,
       filter: { enabled: true, equalization: false },
       face: {
         enabled: true,
-        detector: { rotation: false, maxDetected: 1, minConfidence: 0.5 },
+        detector: { rotation: isMobile, maxDetected: 1, minConfidence: 0.45, return: false },
         mesh: { enabled: true },
         iris: { enabled: false },
         description: { enabled: true },   // 1024-d identity embedding (FaceRes)
@@ -275,8 +340,13 @@
         emotion: { enabled: false },
         attention: { enabled: false },
       },
-      body: { enabled: false }, hand: { enabled: false }, object: { enabled: false }, gesture: { enabled: false },
-    });
+      body: { enabled: false },
+      hand: { enabled: false },
+      object: { enabled: false },
+      gesture: { enabled: false },
+    };
+
+    let human = new Human(baseConfig);
 
     /* ---------- IndexedDB ---------- */
     const dbp = new Promise((res, rej) => {
@@ -379,11 +449,12 @@
         overlay.classList.remove('mirror');
       }
 
+      // Mobile-friendly resolution constraints (prevents high-res lag on phone sensors)
       const constraintOptions = [
-        { video: { facingMode: { exact: facing }, width: { ideal: 640 }, height: { ideal: 480 } } },
-        { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } } },
-        { video: { facingMode: facing } },
-        { video: true }
+        { video: { facingMode: { exact: facing }, width: { ideal: 480 }, height: { ideal: 640 } }, audio: false },
+        { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: { facingMode: facing }, audio: false },
+        { video: true, audio: false }
       ];
 
       let stream = null;
@@ -402,8 +473,17 @@
 
       mediaStream = stream;
       video.srcObject = mediaStream;
+      
+      await new Promise((resolve) => {
+        if (video.readyState >= 2) return resolve();
+        video.onloadedmetadata = () => resolve();
+      });
       await video.play();
       
+      // Sync canvas dimensions strictly to actual mobile video sensor stream
+      overlay.width = video.videoWidth || 480;
+      overlay.height = video.videoHeight || 640;
+
       currentFacingMode = facing;
       isCameraActive = true;
       $('cam-btn-text').textContent = "Active";
@@ -431,18 +511,102 @@
       }
     };
 
-    /* ---------- Detection Loop & Drawing ---------- */
+    $('btn-mesh-toggle').onclick = () => {
+      showMesh = !showMesh;
+      $('btn-mesh-toggle').className = showMesh
+        ? 'w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg'
+        : 'w-8 h-8 rounded-md bg-black/65 backdrop-blur-md border border-white/20 text-gray-400 flex items-center justify-center active:scale-95 transition-all shadow-lg';
+    };
+
+    $('btn-auto-scan').onclick = () => {
+      autoScanEnabled = !autoScanEnabled;
+      $('auto-scan-text').textContent = autoScanEnabled ? 'Auto: ON' : 'Auto: OFF';
+      $('btn-auto-scan').className = autoScanEnabled
+        ? 'col-span-1 h-12 bg-sky-600/25 border border-sky-500 text-sky-300 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md'
+        : 'col-span-1 h-12 bg-[#1f293d] hover:bg-gray-800 border border-gray-700 text-gray-200 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md';
+      $('scan-beam').classList.toggle('hidden', !autoScanEnabled);
+    };
+
+    /* ---------- Detection Loop & High-Visibility Mobile Mesh Drawing ---------- */
     let last = null;
 
+    // Key facial contour landmark indices (468-point FaceMesh topology)
+    const FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
+    const LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246, 33];
+    const RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398, 362];
+    const LIPS_OUTER = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185, 61];
+
+    function drawContour(mesh, indices, color, lineWidth = 1.2) {
+      ctx.beginPath();
+      let started = false;
+      for (const idx of indices) {
+        const pt = mesh[idx];
+        if (!pt) continue;
+        if (!started) { ctx.moveTo(pt[0], pt[1]); started = true; }
+        else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    }
+
     function draw(face) {
-      overlay.width = video.videoWidth || 640; 
-      overlay.height = video.videoHeight || 480;
+      const vw = video.videoWidth || 480;
+      const vh = video.videoHeight || 640;
+      if (overlay.width !== vw || overlay.height !== vh) {
+        overlay.width = vw;
+        overlay.height = vh;
+      }
+
       ctx.clearRect(0, 0, overlay.width, overlay.height);
-      if (!face) return;
+
+      // Update Telemetry HUD
+      if (!face) {
+        $('telemetry-dot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
+        $('telemetry-text').textContent = 'NO FACE';
+        $('telemetry-mesh').textContent = 'MESH: 0 PTS';
+        return;
+      }
+
+      const meshPts = face.mesh || [];
+      $('telemetry-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+      $('telemetry-text').textContent = `LOCK ${(face.score * 100).toFixed(0)}%`;
+      $('telemetry-mesh').textContent = `MESH: ${meshPts.length} PTS`;
+
       const [x, y, w, h] = face.box;
-      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
-      ctx.fillStyle = '#38bdf8';
-      for (const [px, py] of face.mesh || []) ctx.fillRect(px - 1, py - 1, 1.5, 1.5);
+      const isPulsing = Date.now() < scanPulseUntil;
+      const primaryColor = isPulsing ? '#34d399' : '#38bdf8';
+
+      // Corner Brackets Reticle (clean mobile HUD framing)
+      const corner = Math.max(16, Math.min(w, h) * 0.18);
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      // Top-left
+      ctx.moveTo(x, y + corner); ctx.lineTo(x, y); ctx.lineTo(x + corner, y);
+      // Top-right
+      ctx.moveTo(x + w - corner, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + corner);
+      // Bottom-left
+      ctx.moveTo(x, y + h - corner); ctx.lineTo(x, y + h); ctx.lineTo(x + corner, y + h);
+      // Bottom-right
+      ctx.moveTo(x + w - corner, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - corner);
+      ctx.stroke();
+
+      if (!showMesh || meshPts.length === 0) return;
+
+      // Draw connected biometric wireframe contours
+      drawContour(meshPts, FACE_OVAL, 'rgba(56, 189, 248, 0.55)', 1.3);
+      drawContour(meshPts, LEFT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2);
+      drawContour(meshPts, RIGHT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2);
+      drawContour(meshPts, LIPS_OUTER, 'rgba(56, 189, 248, 0.7)', 1.2);
+
+      // Draw 468 3D mesh nodes scaled cleanly for high-DPI mobile screens
+      ctx.fillStyle = isPulsing ? 'rgba(52, 211, 153, 0.9)' : 'rgba(125, 211, 252, 0.85)';
+      const dotSize = Math.max(1.6, overlay.width / 260);
+      for (let i = 0; i < meshPts.length; i++) {
+        const [px, py] = meshPts[i];
+        ctx.fillRect(px - dotSize / 2, py - dotSize / 2, dotSize, dotSize);
+      }
     }
 
     async function loop() {
@@ -462,6 +626,12 @@
           const r = await human.detect(video);
           last = (r && r.face && r.face.length > 0) ? r.face[0] : null;
           draw(last);
+
+          // Continuous hands-free scan on mobile when Auto is enabled
+          if (autoScanEnabled && last && last.embedding?.length && (Date.now() - lastAutoScanTime > 2000)) {
+            lastAutoScanTime = Date.now();
+            await runIdentification(true);
+          }
         } catch (e) {
           // Bypasses unready frame tensor predictions safely
         } finally {
@@ -480,15 +650,29 @@
       const name = $('name').value.trim();
       if (!name) return say('Provide user name prior to capture.', 'bad');
       $('btn-enroll').disabled = true;
+      $('scan-beam').classList.remove('hidden');
+
       const samples = [];
-      for (let i = 0; i < 3; i++) {
-        say(`Capturing Sample ${i + 1}/3… Hold still.`);
-        await sleep(500);
+      let attempts = 0;
+      while (samples.length < 3 && attempts < 20) {
+        attempts++;
+        say(`Capturing Mesh Sample ${samples.length + 1}/3… Hold still.`);
+        await sleep(450);
         const f = last;
-        if (f && f.embedding?.length && livenessOK(f)) samples.push(Array.from(f.embedding));
-        else i--, await sleep(300);
-        if (samples.length === 3) break;
+        if (f && f.embedding?.length && livenessOK(f)) {
+          samples.push(Array.from(f.embedding));
+          scanPulseUntil = Date.now() + 300;
+        }
       }
+
+      if (!autoScanEnabled) $('scan-beam').classList.add('hidden');
+
+      if (samples.length < 3) {
+        say('Enrollment Timed Out: Keep face centered in frame.', 'bad');
+        $('btn-enroll').disabled = false;
+        return;
+      }
+
       await addPerson({ name, samples, created: Date.now() });
       $('name').value = '';
       say(`Successfully Enrolled: ${name}`, 'ok');
@@ -497,30 +681,53 @@
     };
 
     /* ---------- Public Identification (1:N) ---------- */
-    $('btn-verify').onclick = async () => {
+    async function runIdentification(isAuto = false) {
       const people = await allPeople();
-      if (!people.length) return say('Access Denied: No personnel enrolled.', 'bad');
+      if (!people.length) {
+        if (!isAuto) say('Access Denied: No personnel enrolled.', 'bad');
+        return;
+      }
+
+      if (!isAuto) {
+        $('scan-beam').classList.remove('hidden');
+        say('Scanning Facial Mesh & Embeddings…');
+        await sleep(250);
+        if (!autoScanEnabled) $('scan-beam').classList.add('hidden');
+      }
+
       const f = last;
-      if (!f || !f.embedding?.length) return say('Identification Failed: No face detected.', 'bad');
-      if (!livenessOK(f)) return say('Access Denied: Spoof detection triggered.', 'bad');
+      if (!f || !f.embedding?.length) {
+        if (!isAuto) say('Identification Failed: No face detected.', 'bad');
+        return;
+      }
+      if (!livenessOK(f)) {
+        say('Access Denied: Spoof detection triggered.', 'bad');
+        return;
+      }
 
       let best = { name: null, sim: 0 };
-      for (const p of people)
+      for (const p of people) {
         for (const s of p.samples) {
           const sim = human.match.similarity(s, f.embedding);
           if (sim > best.sim) best = { name: p.name, sim };
         }
+      }
+
       const thr = +$('thr').value;
+      scanPulseUntil = Date.now() + 700;
+
       if (best.sim >= thr) {
         say(`Access Granted: ${best.name} (${(best.sim * 100).toFixed(1)}%)`, 'ok');
       } else {
         say(`Access Denied: Unrecognized User (${(best.sim * 100).toFixed(1)}%)`, 'bad');
       }
-    };
+    }
+
+    $('btn-verify').onclick = () => runIdentification(false);
 
     $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
 
-    /* ---------- System Startup ---------- */
+    /* ---------- System Startup with Mobile WebGL -> WASM Fallback ---------- */
     window.addEventListener('unhandledrejection', event => {
       if (event.reason && String(event.reason).includes('inputNodes')) {
         event.preventDefault();
@@ -531,8 +738,18 @@
       try {
         say('Initializing Biometric Engine…');
 
-        await human.init();
-        await human.load(); 
+        try {
+          await human.init();
+          await human.load();
+          $('engine-tag').textContent = 'Terminal v2.5 • WebGL GPU';
+        } catch (webglErr) {
+          // Fallback to WASM if phone browser blocks or fails WebGL tensor shaders
+          say('Switching to Mobile WASM Engine…');
+          human = new Human({ ...baseConfig, backend: 'wasm' });
+          await human.init();
+          await human.load();
+          $('engine-tag').textContent = 'Terminal v2.5 • Mobile WASM';
+        }
 
         isModelReady = true;
 
@@ -540,10 +757,12 @@
           await initCamera('user');
           say('Terminal Active. Ready for Identification.');
         } catch (camErr) {
-          say('Tap "Start Cam" to grant camera access.');
+          say('Tap "Start" to grant camera access.');
         }
 
-        $('btn-enroll').disabled = $('btn-verify').disabled = false;
+        $('btn-enroll').disabled = false;
+        $('btn-verify').disabled = false;
+        $('btn-auto-scan').disabled = false;
         loop();
       } catch (e) {
         say('Engine Initialization Failed: ' + e.message, 'bad');
