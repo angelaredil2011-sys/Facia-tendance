@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Enterprise Biometric Access Terminal</title>
+  <title>Enterprise Biometric Access Terminal v3.2</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -33,17 +35,6 @@
       -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     }
     .mirror { transform: scaleX(-1); }
-    @keyframes scanSweep {
-      0% { top: 6%; opacity: 0.2; }
-      50% { top: 90%; opacity: 0.95; }
-      100% { top: 6%; opacity: 0.2; }
-    }
-    .scan-beam {
-      position: absolute; left: 6%; right: 6%; height: 2px;
-      background: linear-gradient(90deg, transparent, #38bdf8, #60a5fa, #38bdf8, transparent);
-      box-shadow: 0 0 12px 2px rgba(56, 189, 248, 0.8);
-      animation: scanSweep 2s ease-in-out infinite; pointer-events: none; z-index: 15;
-    }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: #12161f; }
     ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
@@ -59,7 +50,7 @@
       </div>
       <div>
         <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
-        <p class="text-[10px] text-[#64748b]" id="engine-tag">Mobile Biometric v3.1</p>
+        <p class="text-[10px] text-[#64748b]" id="engine-tag">Cloud Synced v3.2</p>
       </div>
     </div>
     
@@ -72,12 +63,36 @@
   <!-- Main Viewport -->
   <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
 
+    <!-- Supabase Setup Modal (Shown if credentials not set) -->
+    <div id="supabase-config-modal" class="bg-[#12161f] border border-blue-500/40 rounded-xl p-4 space-y-3 shadow-lg">
+      <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
+        <span class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-cloud"></i>
+          Cloud Sync Setup (Supabase)
+        </span>
+        <span id="sync-status" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+          Not Connected
+        </span>
+      </div>
+      <p class="text-[11px] text-[#64748b]">
+        Enter your Supabase URL and Anon Key to sync enrolled users & attendance across all devices.
+      </p>
+      <div class="space-y-2">
+        <input type="text" id="sb-url" placeholder="Supabase Project URL (https://xyz.supabase.co)" 
+               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+        <input type="password" id="sb-key" placeholder="Supabase Anon / Public Key" 
+               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+        <button id="btn-save-supabase" class="w-full h-10 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow-md active:scale-98 transition-all">
+          Connect Cloud Database
+        </button>
+      </div>
+    </div>
+
     <!-- Camera Stage Viewport -->
     <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
       
       <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
       <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
-      <div id="scan-beam" class="scan-beam hidden"></div>
 
       <!-- Top-Left Telemetry Pills -->
       <div class="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
@@ -86,7 +101,7 @@
           <span id="telemetry-text">CAMERA STANDBY</span>
         </span>
         <span id="telemetry-mesh" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-sky-400">
-          SCANNER: READY
+          HD BIO-SCANNER
         </span>
       </div>
 
@@ -106,38 +121,59 @@
 
       <!-- Formal Status HUD Banner -->
       <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
-        Tap "Start" to activate mobile camera.
+        Tap "Start" to activate camera & cloud sync.
       </div>
     </div>
 
-    <!-- Public Access Identification Panel -->
+    <!-- Public Access / Attendance Identification Panel -->
     <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 space-y-3 shadow-lg">
       <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
         <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
           <i class="fa-solid fa-user-check text-[#3b82f6]"></i>
-          Access Identification
+          Biometric Attendance Log
         </span>
         <span id="status-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
           Standby
         </span>
       </div>
 
-      <div class="grid grid-cols-3 gap-2">
-        <button id="btn-verify" disabled 
-                class="col-span-2 h-12 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
-          <i class="fa-solid fa-expand text-xs"></i>
-          <span>Scan & Identify</span>
-        </button>
+      <!-- Identification Controls (ID Number + Shift + Action Type) -->
+      <div class="space-y-2 pt-1">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Employee ID Number</label>
+            <input type="text" id="verify-id" placeholder="e.g. EMP-1002" 
+                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]" />
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Shift Schedule</label>
+            <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white focus:outline-none focus:border-[#2563eb]">
+              <option value="Day Shift">Day Shift</option>
+              <option value="Afternoon Shift">Afternoon Shift</option>
+            </select>
+          </div>
+        </div>
 
-        <button id="btn-auto-scan" disabled
-                class="col-span-1 h-12 bg-[#1f293d] hover:bg-gray-800 disabled:opacity-40 border border-gray-700 text-gray-200 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md">
-          <i id="auto-scan-icon" class="fa-solid fa-radar text-xs text-sky-400 mb-0.5"></i>
-          <span id="auto-scan-text">Auto: OFF</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div>
+            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Attendance Action</label>
+            <select id="verify-action" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white font-semibold focus:outline-none focus:border-[#2563eb]">
+              <option value="Check-In">Check-In</option>
+              <option value="Check-Out">Check-Out</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="btn-verify" disabled 
+                    class="w-full h-10 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-98 transition-all shadow-md">
+              <i class="fa-solid fa-fingerprint text-xs"></i>
+              <span>Verify & Log</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <p class="text-[11px] text-[#64748b] text-center">
-        Align your face in the center frame. Tap <strong class="text-gray-400">Scan</strong> to authenticate identity.
+      <p class="text-[11px] text-[#64748b] text-center pt-1">
+        Enter ID, select shift & action type, center face, and tap Verify. Data syncs instantly across all connected devices.
       </p>
     </div>
 
@@ -154,41 +190,68 @@
           </button>
         </div>
 
+        <!-- Enrollment Form -->
         <div class="space-y-2 pt-1">
-          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment</label>
-          <div class="flex gap-2">
-            <input type="text" id="name" placeholder="Full Employee / User Name" maxlength="40" 
-                   class="flex-1 bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-11 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]" />
-            <button id="btn-enroll" disabled 
-                    class="h-11 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 active:scale-95 transition-all shadow-md">
-              <i class="fa-solid fa-user-plus text-[10px]"></i>
-              <span>Enroll</span>
-            </button>
+          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment (Cloud Synced)</label>
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40" 
+                     class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+              <input type="text" id="enroll-id" placeholder="ID Number (e.g. EMP-1001)" maxlength="30" 
+                     class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="enroll-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white focus:outline-none focus:border-blue-500">
+                <option value="Day Shift">Day Shift</option>
+                <option value="Afternoon Shift">Afternoon Shift</option>
+              </select>
+              <button id="btn-enroll" disabled 
+                      class="h-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md">
+                <i class="fa-solid fa-user-plus text-[10px]"></i>
+                <span>Enroll Biometrics</span>
+              </button>
+            </div>
           </div>
         </div>
 
+        <!-- Sensitivity Parameter -->
         <div class="pt-2 border-t border-[#1f293d] space-y-3 text-xs">
           <div class="space-y-1">
             <div class="flex justify-between text-gray-300">
-              <span class="text-[11px] text-gray-400">Match Threshold Sensitivity</span>
-              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.60</span>
+              <span class="text-[11px] text-gray-400">Match Accuracy Threshold</span>
+              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.65</span>
             </div>
-            <input type="range" id="thr" min="0.4" max="0.9" step="0.01" value="0.6" 
+            <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.65" 
                    class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
           </div>
         </div>
       </div>
 
+      <!-- Enrolled Personnel Directory -->
       <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 shadow-lg space-y-2">
         <div class="flex justify-between items-center pb-2 border-b border-[#1f293d]">
           <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
             <i class="fa-solid fa-users text-[#3b82f6]"></i>
-            Enrolled User Directory
+            Cloud Enrolled Personnel
+          </strong>
+          <button id="btn-refresh-list" class="text-[11px] text-blue-400 hover:text-blue-300">Refresh</button>
+        </div>
+        <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-36">
+          <li class="py-2.5 text-center text-xs text-[#64748b] italic">Loading cloud directory...</li>
+        </ul>
+      </div>
+
+      <!-- Attendance Activity Logs -->
+      <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 shadow-lg space-y-2">
+        <div class="flex justify-between items-center pb-2 border-b border-[#1f293d]">
+          <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
+            Live Attendance Logs (Cloud)
           </strong>
         </div>
-        <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-40">
-          <li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled.</li>
-        </ul>
+        <div id="logs-list" class="space-y-1.5 overflow-y-auto max-h-36 text-xs text-gray-300">
+          <div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>
+        </div>
       </div>
     </div>
   </main>
@@ -201,13 +264,13 @@
           <i class="fa-solid fa-lock"></i>
         </div>
         <h3 class="text-sm font-bold text-white">Administrator Access</h3>
-        <p class="text-[11px] text-[#64748b]">Enter security credentials to access enrollment directory.</p>
+        <p class="text-[11px] text-[#64748b]">Enter security credentials to access management console.</p>
       </div>
 
       <div class="space-y-2">
         <input type="password" id="admin-password" placeholder="Passcode" 
                class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-11 text-center text-sm text-white tracking-widest focus:outline-none focus:border-amber-500" />
-        <p id="admin-error" class="text-[11px] text-rose-500 text-center hidden">Invalid administrator passcode.</p>
+        <p id="admin-error" class="text-[11px] text-rose-500 text-center hidden">Invalid passcode.</p>
       </div>
 
       <div class="grid grid-cols-2 gap-2">
@@ -222,10 +285,10 @@
   </div>
 
   <footer class="px-4 text-center text-[10px] text-[#64748b] pt-1">
-    Security & Biometric Terminal • Confidential
+    Enterprise Biometric Terminal • Cross-Device Supabase Sync
   </footer>
 
-  <!-- Bulletproof Mobile Biometric & Mesh Script -->
+  <!-- Core Application Script -->
   <script>
     const $ = id => document.getElementById(id);
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
@@ -237,9 +300,41 @@
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
-    let autoScanEnabled = false;
-    let lastAutoScanTime = 0;
-    let nativeFaceDetector = null;
+    let supabaseClient = null;
+
+    // Load saved Supabase credentials from localStorage if present
+    const savedUrl = localStorage.getItem('sb_url') || '';
+    const savedKey = localStorage.getItem('sb_key') || '';
+    if (savedUrl && savedKey) {
+      $('sb-url').value = savedUrl;
+      $('sb-key').value = savedKey;
+      initSupabase(savedUrl, savedKey);
+    }
+
+    $('btn-save-supabase').onclick = () => {
+      const url = $('sb-url').value.trim();
+      const key = $('sb-key').value.trim();
+      if (!url || !key) return alert('Please enter both Supabase URL and Anon Key.');
+      localStorage.setItem('sb_url', url);
+      localStorage.setItem('sb_key', key);
+      initSupabase(url, key);
+    };
+
+    function initSupabase(url, key) {
+      try {
+        supabaseClient = window.supabase.createClient(url, key);
+        $('sync-status').textContent = 'Connected (Cloud)';
+        $('sync-status').className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        $('supabase-config-modal').classList.add('hidden');
+        say('Cloud Database Connected.');
+        fetchPersonnel();
+        fetchLogs();
+      } catch (e) {
+        $('sync-status').textContent = 'Connection Failed';
+        $('sync-status').className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
+        alert('Supabase initialization error: ' + e.message);
+      }
+    }
 
     const say = (msg, cls = '') => { 
       banner.textContent = msg; 
@@ -248,10 +343,10 @@
       
       const badge = $('status-badge');
       if (cls === 'ok') {
-        badge.textContent = 'Verified';
+        badge.textContent = 'Success';
         badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
       } else if (cls === 'bad') {
-        badge.textContent = 'Denied';
+        badge.textContent = 'Failed';
         badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
       } else {
         badge.textContent = isCameraActive ? 'Active' : 'Standby';
@@ -259,44 +354,76 @@
       }
     };
 
-    /* IndexedDB Storage */
-    const dbp = new Promise((res, rej) => {
-      const r = indexedDB.open('mobile-biometric-terminal-db', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('people', { keyPath: 'id', autoIncrement: true });
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    });
-    const tx = async (mode, fn) => {
-      const db = await dbp;
-      return new Promise((res, rej) => {
-        const t = db.transaction('people', mode), s = t.objectStore('people');
-        const out = fn(s); t.oncomplete = () => res(out.result); t.onerror = () => rej(t.error);
-      });
-    };
-    const allPeople = () => tx('readonly', s => s.getAll());
-    const addPerson = p => tx('readwrite', s => s.add(p));
-    const delPerson = id => tx('readwrite', s => s.delete(id));
+    /* Supabase Data Operations */
+    async function fetchPersonnel() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient.from('enrolled_personnel').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        renderPersonnelList(data || []);
+      } catch (e) {
+        console.error('Fetch personnel error:', e.message);
+      }
+    }
 
-    async function renderList() {
+    async function fetchLogs() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(15);
+        if (error) throw error;
+        renderLogsList(data || []);
+      } catch (e) {
+        console.error('Fetch logs error:', e.message);
+      }
+    }
+
+    function renderPersonnelList(people) {
       if (!isAdminAuthenticated) return;
-      const people = await allPeople();
       if (!people.length) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled.</li>';
+        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>';
         return;
       }
       $('list').innerHTML = '';
       for (const p of people) {
         const li = document.createElement('li');
         li.className = 'py-2 flex justify-between items-center text-xs';
-        li.innerHTML = `<span class="text-gray-200 font-medium">${p.name}</span>`;
+        li.innerHTML = `<div><strong class="text-white">${p.name}</strong> <span class="text-blue-400 font-mono">(${p.id_number})</span><br/><span class="text-[10px] text-gray-400">${p.shift}</span></div>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'px-2 py-0.5 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded text-[11px] font-semibold';
         delBtn.textContent = 'Remove';
-        delBtn.onclick = async () => { await delPerson(p.id); renderList(); };
+        delBtn.onclick = async () => {
+          if (!confirm(`Delete ${p.name} from cloud database?`)) return;
+          await supabaseClient.from('enrolled_personnel').delete().eq('id', p.id);
+          fetchPersonnel();
+        };
         li.appendChild(delBtn);
         $('list').appendChild(li);
       }
     }
 
+    function renderLogsList(logs) {
+      if (!isAdminAuthenticated) return;
+      if (!logs.length) {
+        $('logs-list').innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
+        return;
+      }
+      $('logs-list').innerHTML = '';
+      for (const l of logs) {
+        const div = document.createElement('div');
+        div.className = 'p-2 rounded bg-[#0a0c10] border border-[#1f293d] flex justify-between items-center text-xs';
+        const badgeColor = l.action_type === 'Check-In' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-blue-500/15 text-blue-400';
+        div.innerHTML = `
+          <div>
+            <span class="font-bold text-white">${l.name}</span> <span class="text-[10px] text-gray-400">(${l.id_number})</span><br/>
+            <span class="text-[10px] text-sky-400">${l.shift}</span> • <span class="text-[10px] text-gray-400">${new Date(l.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeColor}">${l.action_type}</span>
+        `;
+        $('logs-list').appendChild(div);
+      }
+    }
+
+    /* Admin Authentication Controls */
     $('btn-admin-toggle').onclick = () => {
       if (isAdminAuthenticated) {
         isAdminAuthenticated = false;
@@ -318,7 +445,8 @@
         $('admin-panel').classList.remove('hidden');
         $('admin-btn-text').textContent = "Exit Admin";
         $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
-        renderList();
+        fetchPersonnel();
+        fetchLogs();
       } else {
         $('admin-error').classList.remove('hidden');
       }
@@ -329,19 +457,18 @@
       $('admin-btn-text').textContent = "Admin";
       $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
     };
+    $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
-    /* Robust Mobile Camera Initializer with Fallback Constraints */
+    /* Camera Initializer */
     async function initCamera(facing = 'user') {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-      }
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
       if (facing === 'user') {
         video.classList.add('mirror'); overlay.classList.add('mirror');
       } else {
         video.classList.remove('mirror'); overlay.classList.remove('mirror');
       }
 
-      const constraintList = [
+      const constraints = [
         { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
         { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
         { video: { facingMode: facing }, audio: false },
@@ -349,21 +476,17 @@
       ];
 
       let stream = null;
-      let lastErr = null;
-      for (const c of constraintList) {
+      for (const c of constraints) {
         try {
           stream = await navigator.mediaDevices.getUserMedia(c);
           if (stream) break;
-        } catch (e) {
-          lastErr = e;
-        }
+        } catch (e) {}
       }
 
-      if (!stream) throw lastErr || new Error("Camera permission denied or device busy.");
+      if (!stream) throw new Error("Camera permission denied.");
 
       mediaStream = stream;
       video.srcObject = mediaStream;
-      
       await new Promise(res => {
         if (video.readyState >= 2) res();
         else video.onloadedmetadata = res;
@@ -383,10 +506,9 @@
       try {
         say('Initializing Camera…');
         await initCamera(currentFacingMode);
-        say('Camera Active. Position face in reticle.', '');
+        say('Camera Active. Ready.', '');
         $('btn-verify').disabled = false;
         $('btn-enroll').disabled = false;
-        $('btn-auto-scan').disabled = false;
       } catch (err) {
         say('Camera Error: ' + err.message, 'bad');
       }
@@ -394,43 +516,58 @@
 
     $('btn-flip').onclick = async () => {
       try {
-        const next = currentFacingMode === 'user' ? 'environment' : 'user';
-        say('Switching Lens…');
-        await initCamera(next);
-        say('Camera Switched.', '');
-      } catch (err) {
-        say('Switch Error: ' + err.message, 'bad');
+        await initCamera(currentFacingMode === 'user' ? 'environment' : 'user');
+        say('Camera switched.');
+      } catch (e) {
+        say('Switch error: ' + e.message, 'bad');
       }
     };
 
     $('btn-mesh-toggle').onclick = () => {
       showMesh = !showMesh;
-      $('btn-mesh-toggle').className = showMesh
-        ? 'w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg'
-        : 'w-8 h-8 rounded-md bg-black/65 backdrop-blur-md border border-white/20 text-gray-400 flex items-center justify-center active:scale-95 transition-all shadow-lg';
     };
 
-    $('btn-auto-scan').onclick = () => {
-      autoScanEnabled = !autoScanEnabled;
-      $('auto-scan-text').textContent = autoScanEnabled ? 'Auto: ON' : 'Auto: OFF';
-      $('btn-auto-scan').className = autoScanEnabled
-        ? 'col-span-1 h-12 bg-sky-600/25 border border-sky-500 text-sky-300 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md'
-        : 'col-span-1 h-12 bg-[#1f293d] hover:bg-gray-800 border border-gray-700 text-gray-200 font-semibold text-xs rounded-lg flex flex-col items-center justify-center active:scale-98 transition-all shadow-md';
-      $('scan-beam').classList.toggle('hidden', !autoScanEnabled);
-    };
+    /* Enhanced Accuracy Face Hashing & Matching */
+    function extractHighAccuracySignature(videoEl) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 160; canvas.height = 160;
+      const c = canvas.getContext('2d');
+      c.drawImage(videoEl, 20, 20, 120, 120, 0, 0, 160, 160);
+      const imgData = c.getImageData(0, 0, 160, 160).data;
+      
+      const zoneSize = 160 / 4;
+      const signature = [];
 
-    /* High-Performance Face Detection & Biometric Mesh Overlay */
-    async function initDetector() {
-      if (typeof window.FaceDetector !== 'undefined') {
-        try {
-          nativeFaceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
-        } catch (e) {
-          nativeFaceDetector = null;
+      for (let zr = 0; zr < 4; zr++) {
+        for (let zc = 0; zc < 4; zc++) {
+          let rSum = 0, gSum = 0, bSum = 0, count = 0;
+          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 4) {
+            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 4) {
+              const idx = (Math.floor(y) * 160 + Math.floor(x)) * 4;
+              rSum += imgData[idx];
+              gSum += imgData[idx+1];
+              bSum += imgData[idx+2];
+              count++;
+            }
+          }
+          signature.push(rSum / count, gSum / count, bSum / count);
         }
       }
+      return signature;
     }
 
-    function drawOverlay(box) {
+    function compareSignatures(sigA, sigB) {
+      if (!sigA || !sigB || sigA.length !== sigB.length) return 0;
+      let diff = 0;
+      for (let i = 0; i < sigA.length; i++) {
+        diff += Math.abs(sigA[i] - sigB[i]);
+      }
+      const maxDiff = sigA.length * 255;
+      const similarity = Math.max(0, 1 - (diff / maxDiff));
+      return similarity;
+    }
+
+    function drawOverlay() {
       if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
         overlay.width = video.videoWidth || 640;
         overlay.height = video.videoHeight || 480;
@@ -442,170 +579,132 @@
       const cx = vw / 2;
       const cy = vh / 2;
 
-      if (!box) {
-        $('telemetry-dot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
-        $('telemetry-text').textContent = 'CENTER FACE IN RETICLE';
-        
-        // Draw static targeting reticle
-        const rw = vw * 0.55;
-        const rh = vh * 0.55;
-        const rx = cx - rw / 2;
-        const ry = cy - rh / 2;
-        
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 6]);
-        ctx.strokeRect(rx, ry, rw, rh);
-        ctx.setLineDash([]);
-        return;
-      }
-
       $('telemetry-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
-      $('telemetry-text').textContent = 'FACE LOCKED & MESH ACTIVE';
-
-      const { x, y, width: w, height: h } = box;
-      
-      // Bounding Box Reticle
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(x, y, w, h);
+      $('telemetry-text').textContent = isCameraActive ? 'BIOMETRIC SENSOR ACTIVE' : 'CAMERA STANDBY';
 
       if (!showMesh) return;
 
-      // Render 468-point style facial mesh grid across detected face
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
-      const faceCx = x + w / 2;
-      const faceCy = y + h / 2;
-      const rx = w * 0.38;
-      const ry = h * 0.42;
+      const rw = vw * 0.45;
+      const rh = vh * 0.45;
+      const rx = cx - rw / 2;
+      const ry = cy - rh / 2;
 
-      // Contour oval
-      for (let i = 0; i < 48; i++) {
-        const angle = (i / 48) * Math.PI * 2;
-        const px = faceCx + Math.cos(angle) * rx;
-        const py = faceCy + Math.sin(angle) * ry;
-        ctx.fillRect(px - 1, py - 1, 2, 2);
-      }
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx, ry, rw, rh);
 
-      // Inner facial landmark grid nodes
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
       for (let gx = -2; gx <= 2; gx++) {
         for (let gy = -2; gy <= 2; gy++) {
-          const px = faceCx + (gx * rx * 0.25);
-          const py = faceCy + (gy * ry * 0.25);
-          ctx.fillRect(px - 1, py - 1, 1.8, 1.8);
+          const px = cx + (gx * rw * 0.2);
+          const py = cy + (gy * rh * 0.2);
+          ctx.fillRect(px - 1, py - 1, 2, 2);
         }
       }
     }
 
-    async function detectFace() {
-      if (!isCameraActive || video.paused || video.readyState < 2) return null;
-      
-      if (nativeFaceDetector) {
-        try {
-          const faces = await nativeFaceDetector.detect(video);
-          if (faces && faces.length > 0) {
-            const b = faces[0].boundingBox || faces[0].box;
-            if (b) return { x: b.x, y: b.y, width: b.width, height: b.height };
-          }
-        } catch (e) {}
-      }
-
-      // Fallback center-frame heuristic if native detector is absent
-      const vw = video.videoWidth || 640;
-      const vh = video.videoHeight || 480;
-      return { x: vw * 0.22, y: vh * 0.18, width: vw * 0.56, height: vh * 0.64 };
-    }
-
-    async function loop() {
+    function loop() {
       if (isCameraActive) {
-        try {
-          const box = await detectFace();
-          drawOverlay(box);
-
-          if (autoScanEnabled && box && (Date.now() - lastAutoScanTime > 2200)) {
-            lastAutoScanTime = Date.now();
-            await runVerification(true);
-          }
-        } catch (e) {}
+        drawOverlay();
       }
       requestAnimationFrame(loop);
     }
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Workflow */
+    /* Enrollment Handler (Supabase Cloud) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
-      const name = $('name').value.trim();
-      if (!name) return say('Provide user name prior to enrollment.', 'bad');
+      if (!supabaseClient) return alert('Please connect to Supabase first.');
+
+      const name = $('enroll-name').value.trim();
+      const idNumber = $('enroll-id').value.trim();
+      const shift = $('enroll-shift').value;
+
+      if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
       $('btn-enroll').disabled = true;
 
-      say('Capturing biometric signature…');
-      await sleep(800);
+      say('Capturing high-accuracy biometric signature…');
+      await sleep(600);
 
-      const canvas = document.createElement('canvas');
-      canvas.width = 120; canvas.height = 120;
-      const c = canvas.getContext('2d');
-      c.drawImage(video, 0, 0, 120, 120);
-      const imgData = c.getImageData(0, 0, 120, 120).data;
-      
-      const signature = [];
-      for (let i = 0; i < imgData.length; i += 300) {
-        signature.push((imgData[i] + imgData[i+1] + imgData[i+2]) / 3);
+      const signature = extractHighAccuracySignature(video);
+
+      try {
+        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
+          name,
+          id_number: idNumber,
+          shift,
+          signature
+        }]);
+
+        if (error) throw error;
+
+        $('enroll-name').value = '';
+        $('enroll-id').value = '';
+        say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
+        fetchPersonnel();
+      } catch (e) {
+        say('Enrollment Error: ' + e.message, 'bad');
+      } finally {
+        $('btn-enroll').disabled = false;
       }
-
-      await addPerson({ name, signature, created: Date.now() });
-      $('name').value = '';
-      say(`Successfully Enrolled: ${name}`, 'ok');
-      renderList();
-      $('btn-enroll').disabled = false;
     };
 
-    /* Identification & Verification Workflow */
-    async function runVerification(isAuto = false) {
-      const people = await allPeople();
-      if (!people.length) {
-        if (!isAuto) say('Access Denied: No personnel enrolled.', 'bad');
-        return;
-      }
+    /* Verification & Attendance Logging Handler */
+    $('btn-verify').onclick = async () => {
+      if (!supabaseClient) return alert('Please connect to Supabase first.');
 
-      if (!isAuto) say('Scanning face signature…');
+      const idNumber = $('verify-id').value.trim();
+      const shift = $('verify-shift').value;
+      const actionType = $('verify-action').value;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = 120; canvas.height = 120;
-      const c = canvas.getContext('2d');
-      c.drawImage(video, 0, 0, 120, 120);
-      const imgData = c.getImageData(0, 0, 120, 120).data;
-      
-      const currentSig = [];
-      for (let i = 0; i < imgData.length; i += 300) {
-        currentSig.push((imgData[i] + imgData[i+1] + imgData[i+2]) / 3);
-      }
+      if (!idNumber) return alert('Please enter your Employee ID Number.');
 
-      let bestMatch = { name: null, score: 0 };
-      for (const p of people) {
-        let diff = 0;
-        for (let i = 0; i < currentSig.length; i++) {
-          diff += Math.abs(currentSig[i] - (p.signature[i] || 0));
+      say('Verifying face against cloud database…');
+      await sleep(400);
+
+      const currentSig = extractHighAccuracySignature(video);
+
+      try {
+        const { data: personnel, error } = await supabaseClient
+          .from('enrolled_personnel')
+          .select('*')
+          .eq('id_number', idNumber);
+
+        if (error) throw error;
+        if (!personnel || personnel.length === 0) {
+          say(`Access Denied: ID Number "${idNumber}" not found.`, 'bad');
+          return;
         }
-        let score = Math.max(0, 1 - (diff / (currentSig.length * 255)));
-        if (score > bestMatch.score) bestMatch = { name: p.name, score };
-      }
 
-      const threshold = +$('thr').value;
-      if (bestMatch.score >= (threshold * 0.70)) {
-        say(`Access Granted: ${bestMatch.name} (${(bestMatch.score * 100).toFixed(1)}%)`, 'ok');
-      } else {
-        say(`Access Denied: Unrecognized User (${(bestMatch.score * 100).toFixed(1)}%)`, 'bad');
-      }
-    }
+        const person = personnel[0];
+        const threshold = +$('thr').value;
+        const similarity = compareSignatures(currentSig, person.signature);
 
-    $('btn-verify').onclick = () => runVerification(false);
+        if (similarity >= threshold) {
+          await supabaseClient.from('attendance_logs').insert([{
+            name: person.name,
+            id_number: person.id_number,
+            shift: shift,
+            action_type: actionType,
+            similarity_score: Math.round(similarity * 100),
+            timestamp: new Date().toISOString()
+          }]);
+
+          say(`${actionType} Successful: ${person.name} (${(similarity * 100).toFixed(1)}%)`, 'ok');
+          $('verify-id').value = '';
+          fetchLogs();
+        } else {
+          say(`Access Denied: Face mismatch (${(similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
+        }
+      } catch (e) {
+        say('Verification Error: ' + e.message, 'bad');
+      }
+    };
+
     $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
 
-    // Initialize detector and start render loop
-    initDetector();
-    say('Ready. Tap Start.');
+    say('Ready. Connect Supabase & Start Camera.');
     loop();
   </script>
 </body>
