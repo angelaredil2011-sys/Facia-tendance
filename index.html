@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Enterprise Biometric Access Terminal v3.2</title>
+  <title>Enterprise Biometric Attendance Terminal</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
@@ -50,7 +50,7 @@
       </div>
       <div>
         <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
-        <p class="text-[10px] text-[#64748b]" id="engine-tag">Cloud Synced v3.2</p>
+        <p class="text-[10px] text-[#64748b]" id="engine-tag">Supabase Cloud Synced</p>
       </div>
     </div>
     
@@ -62,31 +62,6 @@
 
   <!-- Main Viewport -->
   <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
-
-    <!-- Supabase Setup Modal (Shown if credentials not set) -->
-    <div id="supabase-config-modal" class="bg-[#12161f] border border-blue-500/40 rounded-xl p-4 space-y-3 shadow-lg">
-      <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
-        <span class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-cloud"></i>
-          Cloud Sync Setup (Supabase)
-        </span>
-        <span id="sync-status" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-          Not Connected
-        </span>
-      </div>
-      <p class="text-[11px] text-[#64748b]">
-        Enter your Supabase URL and Anon Key to sync enrolled users & attendance across all devices.
-      </p>
-      <div class="space-y-2">
-        <input type="text" id="sb-url" placeholder="Supabase Project URL (https://xyz.supabase.co)" 
-               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
-        <input type="password" id="sb-key" placeholder="Supabase Anon / Public Key" 
-               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
-        <button id="btn-save-supabase" class="w-full h-10 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow-md active:scale-98 transition-all">
-          Connect Cloud Database
-        </button>
-      </div>
-    </div>
 
     <!-- Camera Stage Viewport -->
     <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
@@ -101,13 +76,13 @@
           <span id="telemetry-text">CAMERA STANDBY</span>
         </span>
         <span id="telemetry-mesh" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-sky-400">
-          HD BIO-SCANNER
+          CLOUD READY
         </span>
       </div>
 
       <!-- Camera Action Floating Controls -->
       <div class="absolute top-3 right-3 z-20 flex gap-1.5">
-        <button id="btn-mesh-toggle" title="Toggle Mesh Grid" class="w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+        <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
           <i class="fa-solid fa-draw-polygon text-xs"></i>
         </button>
         <button id="btn-start-cam" class="h-8 px-2.5 rounded-md bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -121,59 +96,56 @@
 
       <!-- Formal Status HUD Banner -->
       <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
-        Tap "Start" to activate camera & cloud sync.
+        Tap "Start" to activate camera terminal.
       </div>
     </div>
 
-    <!-- Public Access / Attendance Identification Panel -->
+    <!-- Attendance Logging Panel -->
     <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 space-y-3 shadow-lg">
       <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
         <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
           <i class="fa-solid fa-user-check text-[#3b82f6]"></i>
-          Biometric Attendance Log
+          Attendance Verification
         </span>
         <span id="status-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
           Standby
         </span>
       </div>
 
-      <!-- Identification Controls (ID Number + Shift + Action Type) -->
-      <div class="space-y-2 pt-1">
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Employee ID Number</label>
-            <input type="text" id="verify-id" placeholder="e.g. EMP-1002" 
-                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]" />
-          </div>
-          <div>
-            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Shift Schedule</label>
-            <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white focus:outline-none focus:border-[#2563eb]">
-              <option value="Day Shift">Day Shift</option>
-              <option value="Afternoon Shift">Afternoon Shift</option>
-            </select>
-          </div>
+      <!-- ID Number & Shift Below -->
+      <div class="space-y-2.5 pt-1">
+        <div>
+          <label class="text-[10px] text-gray-400 font-medium mb-1 block">Employee ID Number</label>
+          <input type="text" id="verify-id" placeholder="Enter your ID Number (e.g. EMP-1001)" 
+                 class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]" />
         </div>
 
-        <div class="grid grid-cols-2 gap-2 pt-1">
-          <div>
-            <label class="text-[10px] text-gray-400 font-medium mb-1 block">Attendance Action</label>
-            <select id="verify-action" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white font-semibold focus:outline-none focus:border-[#2563eb]">
-              <option value="Check-In">Check-In</option>
-              <option value="Check-Out">Check-Out</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <button id="btn-verify" disabled 
-                    class="w-full h-10 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-98 transition-all shadow-md">
-              <i class="fa-solid fa-fingerprint text-xs"></i>
-              <span>Verify & Log</span>
-            </button>
+        <!-- Check-In / Check-Out Buttons -->
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-checkin" disabled 
+                  class="h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
+            <i class="fa-solid fa-right-to-bracket text-xs"></i>
+            <span>Check-In</span>
+          </button>
+          <button id="btn-checkout" disabled 
+                  class="h-11 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
+            <i class="fa-solid fa-right-from-bracket text-xs"></i>
+            <span>Check-Out</span>
+          </button>
+        </div>
+
+        <!-- Day Shift placed below -->
+        <div class="pt-1">
+          <label class="text-[10px] text-gray-400 font-medium mb-1 block">Shift Schedule</label>
+          <div class="flex items-center gap-2 bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white">
+            <i class="fa-solid fa-sun text-amber-400"></i>
+            <span id="shift-display" class="font-semibold text-gray-200">Day Shift (Default)</span>
           </div>
         </div>
       </div>
 
       <p class="text-[11px] text-[#64748b] text-center pt-1">
-        Enter ID, select shift & action type, center face, and tap Verify. Data syncs instantly across all connected devices.
+        Enter ID number, center face, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
       </p>
     </div>
 
@@ -190,31 +162,29 @@
           </button>
         </div>
 
-        <!-- Enrollment Form -->
-        <div class="space-y-2 pt-1">
-          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment (Cloud Synced)</label>
+        <!-- Enrollment Form: Name + ID together -->
+        <div class="space-y-2.5 pt-1">
+          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment (Name & ID)</label>
           <div class="space-y-2">
-            <div class="grid grid-cols-2 gap-2">
-              <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40" 
-                     class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
-              <input type="text" id="enroll-id" placeholder="ID Number (e.g. EMP-1001)" maxlength="30" 
-                     class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+            <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40" 
+                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+            <input type="text" id="enroll-id" placeholder="ID Number (e.g. EMP-1001)" maxlength="30" 
+                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+            
+            <div class="flex items-center gap-2 bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white">
+              <i class="fa-solid fa-sun text-amber-400"></i>
+              <span class="font-semibold text-gray-200">Day Shift</span>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-              <select id="enroll-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white focus:outline-none focus:border-blue-500">
-                <option value="Day Shift">Day Shift</option>
-                <option value="Afternoon Shift">Afternoon Shift</option>
-              </select>
-              <button id="btn-enroll" disabled 
-                      class="h-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md">
-                <i class="fa-solid fa-user-plus text-[10px]"></i>
-                <span>Enroll Biometrics</span>
-              </button>
-            </div>
+
+            <button id="btn-enroll" disabled 
+                    class="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md">
+              <i class="fa-solid fa-user-plus text-[10px]"></i>
+              <span>Enroll Face & Credentials</span>
+            </button>
           </div>
         </div>
 
-        <!-- Sensitivity Parameter -->
+        <!-- Sensitivity Slider -->
         <div class="pt-2 border-t border-[#1f293d] space-y-3 text-xs">
           <div class="space-y-1">
             <div class="flex justify-between text-gray-300">
@@ -285,10 +255,10 @@
   </div>
 
   <footer class="px-4 text-center text-[10px] text-[#64748b] pt-1">
-    Enterprise Biometric Terminal • Cross-Device Supabase Sync
+    Enterprise Biometric Terminal • Standby Supabase Connected
   </footer>
 
-  <!-- Core Application Script -->
+  <!-- Application Script with Standby Supabase Connection -->
   <script>
     const $ = id => document.getElementById(id);
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
@@ -300,40 +270,18 @@
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
+
+    // ========================================================
+    // STANDBY SUPABASE CONNECTION (Configured separately here)
+    // ========================================================
+    const SUPABASE_URL = 'https://YOUR_SUPABASE_URL.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    
     let supabaseClient = null;
-
-    // Load saved Supabase credentials from localStorage if present
-    const savedUrl = localStorage.getItem('sb_url') || '';
-    const savedKey = localStorage.getItem('sb_key') || '';
-    if (savedUrl && savedKey) {
-      $('sb-url').value = savedUrl;
-      $('sb-key').value = savedKey;
-      initSupabase(savedUrl, savedKey);
-    }
-
-    $('btn-save-supabase').onclick = () => {
-      const url = $('sb-url').value.trim();
-      const key = $('sb-key').value.trim();
-      if (!url || !key) return alert('Please enter both Supabase URL and Anon Key.');
-      localStorage.setItem('sb_url', url);
-      localStorage.setItem('sb_key', key);
-      initSupabase(url, key);
-    };
-
-    function initSupabase(url, key) {
-      try {
-        supabaseClient = window.supabase.createClient(url, key);
-        $('sync-status').textContent = 'Connected (Cloud)';
-        $('sync-status').className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-        $('supabase-config-modal').classList.add('hidden');
-        say('Cloud Database Connected.');
-        fetchPersonnel();
-        fetchLogs();
-      } catch (e) {
-        $('sync-status').textContent = 'Connection Failed';
-        $('sync-status').className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
-        alert('Supabase initialization error: ' + e.message);
-      }
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) {
+      console.warn('Supabase not yet configured with valid keys.');
     }
 
     const say = (msg, cls = '') => { 
@@ -354,7 +302,7 @@
       }
     };
 
-    /* Supabase Data Operations */
+    /* Supabase Cloud Operations */
     async function fetchPersonnel() {
       if (!supabaseClient) return;
       try {
@@ -507,7 +455,8 @@
         say('Initializing Camera…');
         await initCamera(currentFacingMode);
         say('Camera Active. Ready.', '');
-        $('btn-verify').disabled = false;
+        $('btn-checkin').disabled = false;
+        $('btn-checkout').disabled = false;
         $('btn-enroll').disabled = false;
       } catch (err) {
         say('Camera Error: ' + err.message, 'bad');
@@ -527,7 +476,7 @@
       showMesh = !showMesh;
     };
 
-    /* Enhanced Accuracy Face Hashing & Matching */
+    /* High Accuracy Face Signature Extraction */
     function extractHighAccuracySignature(videoEl) {
       const canvas = document.createElement('canvas');
       canvas.width = 160; canvas.height = 160;
@@ -612,14 +561,14 @@
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Handler (Supabase Cloud) */
+    /* Enrollment Handler (Name + ID together, Day Shift below) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
-      if (!supabaseClient) return alert('Please connect to Supabase first.');
+      if (!supabaseClient) return alert('Supabase client not initialized. Please add your Supabase URL & Key in the code script.');
 
       const name = $('enroll-name').value.trim();
       const idNumber = $('enroll-id').value.trim();
-      const shift = $('enroll-shift').value;
+      const shift = 'Day Shift';
 
       if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
       $('btn-enroll').disabled = true;
@@ -650,17 +599,16 @@
       }
     };
 
-    /* Verification & Attendance Logging Handler */
-    $('btn-verify').onclick = async () => {
-      if (!supabaseClient) return alert('Please connect to Supabase first.');
+    /* Attendance Logging Helper */
+    async function handleAttendance(actionType) {
+      if (!supabaseClient) return alert('Supabase client not initialized. Please add your Supabase URL & Key in the code script.');
 
       const idNumber = $('verify-id').value.trim();
-      const shift = $('verify-shift').value;
-      const actionType = $('verify-action').value;
+      const shift = 'Day Shift';
 
       if (!idNumber) return alert('Please enter your Employee ID Number.');
 
-      say('Verifying face against cloud database…');
+      say(`Verifying face for ${actionType}…`);
       await sleep(400);
 
       const currentSig = extractHighAccuracySignature(video);
@@ -700,8 +648,10 @@
       } catch (e) {
         say('Verification Error: ' + e.message, 'bad');
       }
-    };
+    }
 
+    $('btn-checkin').onclick = () => handleAttendance('Check-In');
+    $('btn-checkout').onclick = () => handleAttendance('Check-Out');
     $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
 
     say('Ready. Connect Supabase & Start Camera.');
