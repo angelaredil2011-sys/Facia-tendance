@@ -185,9 +185,9 @@
           <div class="space-y-1">
             <div class="flex justify-between text-gray-300">
               <span class="text-[11px] text-gray-400">Match Accuracy Threshold</span>
-              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.65</span>
+              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.78</span>
             </div>
-            <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.65" 
+            <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.78" 
                    class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
           </div>
         </div>
@@ -394,7 +394,7 @@
         fetchPersonnel();
         fetchLogs();
       } else {
-        $('admin-error').classList.remove('hidden');
+        $('admin-error').classList.add('hidden');
       }
     };
     $('btn-admin-logout').onclick = () => {
@@ -475,7 +475,7 @@
       showMesh = !showMesh;
     };
 
-    /* High Accuracy Face Signature Extraction */
+    /* Strict High Accuracy Face Signature Extraction with Variance Check */
     function extractHighAccuracySignature(videoEl) {
       const canvas = document.createElement('canvas');
       canvas.width = 160; canvas.height = 160;
@@ -483,6 +483,21 @@
       c.drawImage(videoEl, 20, 20, 120, 120, 0, 0, 160, 160);
       const imgData = c.getImageData(0, 0, 160, 160).data;
       
+      // Calculate luminance variance to ensure a real subject/face is present (prevents blank/dark wall false positives)
+      let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
+      for (let i = 0; i < imgData.length; i += 4) {
+        const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
+        lumaSum += luma;
+        lumaSqSum += luma * luma;
+      }
+      const meanLuma = lumaSum / totalPixels;
+      const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
+      
+      // If variance is too low (e.g. blank wall, dark room, or covered camera), throw error
+      if (variance < 45.0) {
+        throw new Error("No distinct face detected. Please face the camera properly.");
+      }
+
       const zoneSize = 160 / 4;
       const signature = [];
 
@@ -560,7 +575,7 @@
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Handler (Name + ID + Shift Dropdown) */
+    /* Enrollment Handler */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -572,12 +587,12 @@
       if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
       $('btn-enroll').disabled = true;
 
-      say('Capturing high-accuracy biometric signature…');
-      await sleep(600);
-
-      const signature = extractHighAccuracySignature(video);
-
       try {
+        say('Capturing high-accuracy biometric signature…');
+        await sleep(600);
+
+        const signature = extractHighAccuracySignature(video);
+
         const { error } = await supabaseClient.from('enrolled_personnel').insert([{
           name,
           id_number: idNumber,
@@ -598,18 +613,18 @@
       }
     };
 
-    /* Attendance Logging Helper (No ID typing required - scans all enrolled personnel and matches face) */
+    /* Attendance Logging Helper with Strict Verification */
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
 
       const shift = $('verify-shift').value;
 
-      say(`Scanning face for ${actionType} (${shift})…`);
-      await sleep(400);
-
-      const currentSig = extractHighAccuracySignature(video);
-
       try {
+        say(`Scanning face for ${actionType} (${shift})…`);
+        await sleep(400);
+
+        const currentSig = extractHighAccuracySignature(video);
+
         const { data: personnel, error } = await supabaseClient
           .from('enrolled_personnel')
           .select('*');
@@ -620,7 +635,7 @@
           return;
         }
 
-        const threshold = +$('thr').value;
+        const threshold = Math.max(0.78, +$('thr').value);
         let bestMatch = { person: null, similarity: 0 };
 
         for (const p of personnel) {
