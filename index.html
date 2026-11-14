@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Biometric Access · BlazeFace Mobile</title>
+  <title>Biometric Access Management System</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
@@ -15,13 +15,13 @@
         extend: {
           colors: {
             brand: {
-              500: '#2563eb',
-              600: '#1d4ed8',
-              700: '#1e40af',
+              500: '#1e3a8a',
+              600: '#1e40af',
+              700: '#1d4ed8',
             },
-            darkbg: '#0f1115',
-            darkcard: '#181b22',
-            darkborder: '#2b303b'
+            darkbg: '#0a0c10',
+            darkcard: '#12161f',
+            darkborder: '#1f293d'
           }
         }
       }
@@ -29,10 +29,10 @@
   </script>
   <style>
     :root {
-      --bg: #0f1115;
-      --card: #181b22;
-      --fg: #e8eaf0;
-      --mut: #8b93a7;
+      --bg: #0a0c10;
+      --card: #12161f;
+      --fg: #f1f5f9;
+      --mut: #64748b;
       --ac: #2563eb;
       --ok: #16a34a;
       --bad: #dc2626;
@@ -45,225 +45,196 @@
       touch-action: manipulation;
     }
 
-    /* CSS flip for camera preview mirroring */
+    /* Mirror video display for front camera */
     .mirror {
       transform: scaleX(-1);
     }
 
-    /* Custom mobile scrollbar */
+    /* Custom thin scrollbars */
     ::-webkit-scrollbar {
       width: 4px;
     }
     ::-webkit-scrollbar-track {
-      background: #181b22;
+      background: #12161f;
     }
     ::-webkit-scrollbar-thumb {
-      background: #2b303b;
+      background: #1f293d;
       border-radius: 4px;
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between max-w-md mx-auto bg-[#0f1115] border-x border-[#2b303b]/40 pb-6 text-[#e8eaf0]">
+<body class="min-h-screen flex flex-col justify-between max-w-md mx-auto bg-[#0a0c10] border-x border-[#1f293d]/50 text-[#f1f5f9] relative pb-4">
 
   <!-- Header Section -->
-  <header class="px-4 py-3 flex items-center justify-between border-b border-[#2b303b] bg-[#181b22]/90 backdrop-blur-md sticky top-0 z-30">
-    <div class="flex items-center space-x-2.5">
-      <div class="w-9 h-9 rounded-xl bg-[#2563eb]/20 border border-[#2563eb]/30 flex items-center justify-center text-[#2563eb]">
-        <i class="fa-solid fa-face-smile text-lg"></i>
+  <header class="px-4 py-3.5 flex items-center justify-between border-b border-[#1f293d] bg-[#12161f]/95 backdrop-blur-md sticky top-0 z-30 shadow-md">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-lg bg-[#2563eb]/15 border border-[#2563eb]/40 flex items-center justify-center text-[#3b82f6]">
+        <i class="fa-solid fa-shield-halved text-lg"></i>
       </div>
       <div>
-        <h1 class="text-sm font-bold text-white tracking-wide">Biometric Access</h1>
-        <p class="text-[10px] text-[#8b93a7]">Oppo & Mobile Engine</p>
+        <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
+        <p class="text-[10px] text-[#64748b]">Biometric Terminal v2.4</p>
       </div>
     </div>
     
-    <div id="status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
-      <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-      <span id="status-badge-text">Initializing</span>
-    </div>
+    <!-- Admin Unlock Button -->
+    <button id="btn-admin-toggle" class="px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+      <i id="admin-icon" class="fa-solid fa-lock text-[11px] text-amber-400"></i>
+      <span id="admin-btn-text">Admin</span>
+    </button>
   </header>
 
   <!-- Main Viewport -->
-  <main class="flex-1 px-3 py-3 flex flex-col gap-3 overflow-y-auto">
+  <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
 
-    <!-- Insecure Context Alert -->
-    <div id="https-warning" class="hidden p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-      <i class="fa-solid fa-triangle-exclamation text-base shrink-0 mt-0.5"></i>
-      <div>
-        <strong class="block font-bold">Insecure Context Warning</strong>
-        <span>Camera access (`getUserMedia`) requires an `https://` domain or `localhost` on mobile browsers.</span>
-      </div>
-    </div>
-
-    <!-- Camera Viewport Container -->
-    <div class="relative w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden border border-[#2b303b] shadow-2xl flex items-center justify-center">
+    <!-- Camera Stage Viewport -->
+    <div class="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
       
-      <!-- Hidden canvas frame extractor for Oppo/Mobile fallback -->
-      <canvas id="frame-canvas" class="hidden"></canvas>
-
-      <!-- Main Video element -->
+      <!-- Video Element with mobile inline streaming attributes -->
       <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
       
-      <!-- Canvas Overlay for bounding boxes -->
+      <!-- Canvas Overlay -->
       <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none"></canvas>
 
-      <!-- Floating Controls -->
-      <div class="absolute top-2.5 right-2.5 z-20 flex gap-2">
-        <button id="btn-start-cam" class="h-9 px-3 rounded-full bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
-          <i class="fa-solid fa-video text-xs"></i>
+      <!-- Camera Action Floating Controls -->
+      <div class="absolute top-3 right-3 z-20 flex gap-2">
+        <button id="btn-start-cam" class="h-8 px-3 rounded-md bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+          <i class="fa-solid fa-video text-[10px]"></i>
           <span id="cam-btn-text">Start Cam</span>
         </button>
-        <button id="btn-flip" title="Switch Camera" class="w-9 h-9 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+        <button id="btn-flip" title="Switch Camera" class="w-8 h-8 rounded-md bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
           <i class="fa-solid fa-camera-rotate text-xs"></i>
         </button>
       </div>
 
-      <!-- Live Detection HUD Status Bar -->
-      <div id="banner" class="absolute bottom-0 inset-x-0 p-2.5 text-center text-xs font-semibold bg-black/75 backdrop-blur-md text-gray-200 border-t border-white/10 transition-colors duration-300">
-        Loading AI models…
+      <!-- Formal Status HUD Banner -->
+      <div id="banner" class="absolute bottom-0 inset-x-0 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
+        Initializing System Models…
       </div>
     </div>
 
-    <!-- Operations Panel -->
-    <div class="bg-[#181b22] border border-[#2b303b] rounded-2xl p-3.5 space-y-3.5 shadow-lg">
+    <!-- Public Access Identification Panel -->
+    <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 space-y-3 shadow-lg">
+      <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
+        <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-user-check text-[#3b82f6]"></i>
+          Access Identification
+        </span>
+        <span id="status-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+          Standby
+        </span>
+      </div>
+
+      <button id="btn-verify" disabled 
+              class="w-full h-12 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
+        <i class="fa-solid fa-expand text-xs"></i>
+        <span>Scan & Identify</span>
+      </button>
+
+      <p class="text-[11px] text-[#64748b] text-center">
+        Position your face clearly within the box and tap Scan to verify identity.
+      </p>
+    </div>
+
+    <!-- ADMIN PROTECTED CONTAINER (Hidden by default) -->
+    <div id="admin-panel" class="hidden space-y-3.5">
       
-      <!-- Admin Toggle -->
-      <div class="flex items-center justify-between bg-[#0f1115] border border-[#2b303b] px-3 py-2.5 rounded-xl">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-shield-cat text-blue-500 text-sm"></i>
-          <div>
-            <span class="text-xs font-semibold text-white block">Administrator Mode</span>
-            <span id="admin-status-label" class="text-[10px] text-amber-400">Locked (Check-In Only)</span>
-          </div>
-        </div>
-        <button id="btn-toggle-admin" class="px-3 py-1.5 rounded-lg bg-[#2b303b] hover:bg-gray-700 text-white text-xs font-medium active:scale-95 transition-all">
-          Admin Login
-        </button>
-      </div>
-
-      <!-- Admin Enrollment Panel -->
-      <div id="admin-enroll-container" class="hidden flex flex-col gap-2 p-3 rounded-xl bg-blue-950/20 border border-blue-500/30">
-        <div class="text-[11px] font-semibold text-blue-400 flex items-center gap-1">
-          <i class="fa-solid fa-user-gear"></i> Face Registration Panel
-        </div>
-        <input type="text" id="name" placeholder="Enter user full name..." maxlength="40" 
-               class="w-full bg-[#0f1115] border border-[#2b303b] rounded-xl px-3.5 h-11 text-sm text-white placeholder-[#8b93a7] focus:outline-none focus:border-[#2563eb] transition-colors" />
-        
-        <button id="btn-enroll" disabled 
-                class="h-11 bg-[#2563eb] hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md">
-          <i class="fa-solid fa-user-plus text-xs"></i>
-          <span>Capture & Enroll Face (3 Samples)</span>
-        </button>
-      </div>
-
-      <!-- Attendance Actions -->
-      <div class="grid grid-cols-2 gap-2">
-        <button id="btn-checkin" disabled 
-                class="h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md">
-          <i class="fa-solid fa-right-to-bracket text-xs"></i>
-          <span>Check In</span>
-        </button>
-        <button id="btn-checkout" disabled 
-                class="h-12 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md">
-          <i class="fa-solid fa-right-from-bracket text-xs"></i>
-          <span>Check Out</span>
-        </button>
-      </div>
-
-      <!-- Threshold Drawer -->
-      <details class="group border-t border-[#2b303b] pt-3">
-        <summary class="flex justify-between items-center cursor-pointer text-xs text-[#8b93a7] hover:text-gray-200 font-medium py-1">
-          <span class="flex items-center gap-1.5">
-            <i class="fa-solid fa-sliders text-[#2563eb]"></i>
-            Matching Sensitivity Settings
+      <!-- Admin Controls Header -->
+      <div class="bg-[#12161f] border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-lg">
+        <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-user-gear"></i>
+            Admin Control Panel
           </span>
-          <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition-transform"></i>
-        </summary>
-        
-        <div class="pt-3 space-y-3 text-xs">
-          <div class="space-y-1.5">
+          <button id="btn-admin-logout" class="text-[11px] text-rose-400 hover:text-rose-300 font-medium">
+            Lock Portal
+          </button>
+        </div>
+
+        <!-- Enrollment Form -->
+        <div class="space-y-2 pt-1">
+          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment</label>
+          <div class="flex gap-2">
+            <input type="text" id="name" placeholder="Full Employee / User Name" maxlength="40" 
+                   class="flex-1 bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-11 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#2563eb]" />
+            <button id="btn-enroll" disabled 
+                    class="h-11 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 active:scale-95 transition-all shadow-md">
+              <i class="fa-solid fa-user-plus text-[10px]"></i>
+              <span>Enroll</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sensitivity & Anti-Spoof Parameters -->
+        <div class="pt-2 border-t border-[#1f293d] space-y-3 text-xs">
+          <div class="space-y-1">
             <div class="flex justify-between text-gray-300">
-              <span>Similarity Threshold</span>
-              <span id="thrv" class="font-mono text-[#2563eb] font-bold">0.50</span>
+              <span class="text-[11px] text-gray-400">Match Threshold Sensitivity</span>
+              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.60</span>
             </div>
-            <input type="range" id="thr" min="0.35" max="0.85" step="0.01" value="0.50" 
-                   class="w-full h-2 bg-[#0f1115] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
+            <input type="range" id="thr" min="0.4" max="0.9" step="0.01" value="0.6" 
+                   class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
           </div>
 
-          <label class="flex items-center justify-between p-3 rounded-xl bg-[#0f1115] border border-[#2b303b] cursor-pointer">
-            <span class="text-gray-300 font-medium flex items-center gap-2">
-              <i class="fa-solid fa-bolt text-amber-400 text-sm"></i>
-              Low-latency Canvas Fallback (For Oppo)
+          <label class="flex items-center justify-between p-2.5 rounded-lg bg-[#0a0c10] border border-[#1f293d] cursor-pointer">
+            <span class="text-gray-300 font-medium text-[11px] flex items-center gap-2">
+              <i class="fa-solid fa-shield text-emerald-400 text-xs"></i>
+              Require Liveness Verification
             </span>
-            <input type="checkbox" id="canvas-fallback-toggle" checked class="w-5 h-5 rounded text-[#2563eb] accent-[#2563eb] bg-[#0f1115] border-[#2b303b]" />
+            <input type="checkbox" id="live" checked class="w-4 h-4 rounded text-[#2563eb] accent-[#2563eb] bg-[#0a0c10] border-[#1f293d]" />
           </label>
         </div>
-      </details>
-    </div>
-
-    <!-- Attendance Log -->
-    <div class="bg-[#181b22] border border-[#2b303b] rounded-2xl p-3.5 shadow-lg flex-1 flex flex-col min-h-[180px]">
-      <div class="flex justify-between items-center pb-2 border-b border-[#2b303b] mb-2">
-        <strong class="text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-solid fa-clipboard-user text-[#2563eb]"></i>
-          Attendance Log
-        </strong>
-        <button id="btn-clear-logs" class="text-[10px] text-rose-400 hover:underline">Clear Log</button>
       </div>
 
-      <ul id="attendance-list" class="divide-y divide-[#2b303b] overflow-y-auto max-h-40 flex-1">
-        <li class="py-3 text-center text-xs text-[#8b93a7] italic">No check-in activity recorded yet.</li>
-      </ul>
-    </div>
+      <!-- Enrolled Database Directory -->
+      <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 shadow-lg space-y-2">
+        <div class="flex justify-between items-center pb-2 border-b border-[#1f293d]">
+          <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-users text-[#3b82f6]"></i>
+            Enrolled User Directory
+          </strong>
+        </div>
 
-    <!-- Enrolled User List -->
-    <div id="enrolled-container" class="hidden bg-[#181b22] border border-[#2b303b] rounded-2xl p-3.5 shadow-lg flex-1 flex flex-col min-h-[140px]">
-      <div class="flex justify-between items-center pb-2 border-b border-[#2b303b] mb-2">
-        <strong class="text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-solid fa-users text-[#2563eb]"></i>
-          Enrolled Profiles
-        </strong>
+        <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-40">
+          <li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled.</li>
+        </ul>
       </div>
 
-      <ul id="list" class="divide-y divide-[#2b303b] overflow-y-auto max-h-36 flex-1">
-        <li class="py-3 text-center text-xs text-[#8b93a7] italic">Nobody enrolled yet.</li>
-      </ul>
     </div>
 
   </main>
 
-  <!-- Admin Modal -->
-  <div id="admin-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-[#181b22] border border-[#2b303b] rounded-2xl p-5 w-full max-w-xs space-y-4 shadow-2xl">
-      <div class="flex items-center gap-2.5 text-white">
-        <div class="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 flex items-center justify-center">
-          <i class="fa-solid fa-lock text-sm"></i>
+  <!-- ADMIN AUTHENTICATION MODAL -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#12161f] border border-[#1f293d] w-full max-w-xs rounded-xl p-5 space-y-4 shadow-2xl">
+      <div class="text-center space-y-1">
+        <div class="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-base">
+          <i class="fa-solid fa-lock"></i>
         </div>
-        <h3 class="text-sm font-bold">Admin Authentication</h3>
+        <h3 class="text-sm font-bold text-white">Administrator Access</h3>
+        <p class="text-[11px] text-[#64748b]">Enter security credentials to access enrollment directory.</p>
       </div>
-      <p class="text-xs text-[#8b93a7]">Enter PIN to access registration panel (Default: <code class="text-white bg-black/40 px-1 py-0.5 rounded">1234</code>)</p>
-      <input type="password" id="admin-pin-input" placeholder="Enter PIN" maxlength="6" 
-             class="w-full bg-[#0f1115] border border-[#2b303b] rounded-xl px-3.5 h-11 text-sm text-center tracking-widest text-white placeholder-[#8b93a7] focus:outline-none focus:border-[#2563eb]" />
-      <div class="grid grid-cols-2 gap-2 pt-1">
-        <button id="btn-cancel-pin" class="h-10 bg-[#2b303b] text-white text-xs font-semibold rounded-xl active:scale-95 transition-all">Cancel</button>
-        <button id="btn-submit-pin" class="h-10 bg-[#2563eb] text-white text-xs font-semibold rounded-xl active:scale-95 transition-all">Verify PIN</button>
+
+      <div class="space-y-2">
+        <input type="password" id="admin-password" placeholder="Passcode" 
+               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-11 text-center text-sm text-white tracking-widest focus:outline-none focus:border-amber-500" />
+        <p id="admin-error" class="text-[11px] text-rose-500 text-center hidden">Invalid administrator passcode.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-modal-cancel" class="h-10 bg-[#1f293d] hover:bg-gray-800 text-gray-300 font-medium text-xs rounded-lg">
+          Cancel
+        </button>
+        <button id="btn-modal-login" class="h-10 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs rounded-lg shadow-md">
+          Authenticate
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Custom Alert/Notification Modal -->
-  <div id="msg-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-[#181b22] border border-[#2b303b] rounded-2xl p-5 w-full max-w-xs space-y-3 shadow-2xl text-center">
-      <div id="msg-icon" class="w-10 h-10 mx-auto rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
-        <i class="fa-solid fa-info"></i>
-      </div>
-      <h3 id="msg-title" class="text-sm font-bold text-white">Notification</h3>
-      <p id="msg-body" class="text-xs text-[#8b93a7]"></p>
-      <button id="msg-close-btn" class="w-full h-10 bg-[#2b303b] hover:bg-gray-700 text-white text-xs font-semibold rounded-xl active:scale-95 transition-all mt-2">
-        OK
-      </button>
-    </div>
-  </div>
+  <footer class="px-4 text-center text-[10px] text-[#64748b] pt-1">
+    Security & Biometric Terminal • Confidential
+  </footer>
 
   <!-- Script Modules -->
   <script type="module">
@@ -271,130 +242,64 @@
 
     const $ = id => document.getElementById(id);
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
-    const frameCanvas = $('frame-canvas');
-    const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
     const ctx = overlay.getContext('2d');
-    const statusBadge = $('status-badge');
-    const statusBadgeText = $('status-badge-text');
 
-    let currentFacingMode = 'user';
+    const ADMIN_PASSCODE = '123587';
+    let isAdminAuthenticated = false;
+
+    let currentFacingMode = 'user'; 
     let mediaStream = null;
     let isCameraActive = false;
     let isModelReady = false;
     let isDetecting = false;
-    let isAdminLoggedIn = false;
-    const ADMIN_PIN = "1234";
-
-    // Show popup helper without using alert()
-    function showAlert(title, text, type = 'info') {
-      $('msg-title').textContent = title;
-      $('msg-body').textContent = text;
-      const iconEl = $('msg-icon');
-      if (type === 'success') {
-        iconEl.className = "w-10 h-10 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg";
-        iconEl.innerHTML = '<i class="fa-solid fa-check"></i>';
-      } else if (type === 'error') {
-        iconEl.className = "w-10 h-10 mx-auto rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg";
-        iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
-      } else {
-        iconEl.className = "w-10 h-10 mx-auto rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg";
-        iconEl.innerHTML = '<i class="fa-solid fa-info"></i>';
-      }
-      $('msg-modal').classList.remove('hidden');
-    }
-
-    $('msg-close-btn').onclick = () => $('msg-modal').classList.add('hidden');
-
-    // HTTPS Protocol Verification
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      $('https-warning').classList.remove('hidden');
-    }
 
     const say = (msg, cls = '') => { 
       banner.textContent = msg; 
-      banner.className = 'absolute bottom-0 inset-x-0 p-2.5 text-center text-xs font-semibold backdrop-blur-md transition-colors duration-300 ' + 
-        (cls === 'ok' ? 'bg-emerald-600/90 text-white' : cls === 'bad' ? 'bg-rose-600/90 text-white' : 'bg-black/75 text-gray-200 border-t border-white/10');
+      banner.className = 'absolute bottom-0 inset-x-0 py-2 px-3 text-center text-xs font-semibold backdrop-blur-md transition-colors duration-300 ' + 
+        (cls === 'ok' ? 'bg-emerald-700/90 text-white' : cls === 'bad' ? 'bg-rose-700/90 text-white' : 'bg-black/80 text-gray-300 border-t border-white/10');
     };
 
-    const updateStatusBadge = (text, type = 'ready') => {
-      statusBadgeText.textContent = text;
-      if (type === 'ready') {
-        statusBadge.className = "px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5";
-      } else if (type === 'error') {
-        statusBadge.className = "px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1.5";
-      } else {
-        statusBadge.className = "px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5";
-      }
-    };
-
-    /* ---------- Human Config Optimized for Mobile & Oppo Devices ---------- */
+    /* ---------- Human: BlazeFace detector + FaceRes embedding ---------- */
     const human = new Human({
       backend: 'webgl',
       modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human-models/models/',
       filter: { enabled: true, equalization: false },
       face: {
         enabled: true,
-        detector: { modelPath: 'blazeface.json', rotation: false, maxDetected: 1, minConfidence: 0.4 },
-        mesh: { enabled: true, modelPath: 'facemesh.json' },
+        detector: { rotation: false, maxDetected: 1, minConfidence: 0.5 },
+        mesh: { enabled: true },
         iris: { enabled: false },
-        description: { enabled: true, modelPath: 'faceres.json' },
-        antispoof: { enabled: false },  // Disabled to prevent Mobile WebGL context crashes
-        liveness: { enabled: false },   // Disabled to prevent strict angle rejections on front cams
+        description: { enabled: true },   // 1024-d identity embedding (FaceRes)
+        antispoof: { enabled: true },
+        liveness: { enabled: true },
         emotion: { enabled: false },
         attention: { enabled: false },
       },
-      body: { enabled: false }, 
-      hand: { enabled: false }, 
-      object: { enabled: false }, 
-      gesture: { enabled: false },
+      body: { enabled: false }, hand: { enabled: false }, object: { enabled: false }, gesture: { enabled: false },
     });
 
-    /* ---------- IndexedDB Data Store ---------- */
+    /* ---------- IndexedDB ---------- */
     const dbp = new Promise((res, rej) => {
-      const r = indexedDB.open('blazeface-oppo-db', 2);
-      r.onupgradeneeded = () => {
-        const db = r.result;
-        if (!db.objectStoreNames.contains('people')) {
-          db.createObjectStore('people', { keyPath: 'id', autoIncrement: true });
-        }
-        if (!db.objectStoreNames.contains('attendance')) {
-          db.createObjectStore('attendance', { keyPath: 'id', autoIncrement: true });
-        }
-      };
-      r.onsuccess = () => res(r.result); 
-      r.onerror = () => rej(r.error);
+      const r = indexedDB.open('blazeface-auth', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('people', { keyPath: 'id', autoIncrement: true });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
     });
-
-    const tx = async (storeName, mode, fn) => {
+    const tx = async (mode, fn) => {
       const db = await dbp;
       return new Promise((res, rej) => {
-        const t = db.transaction(storeName, mode), s = t.objectStore(storeName);
-        const out = fn(s); 
-        t.oncomplete = () => res(out.result); 
-        t.onerror = () => rej(t.error);
+        const t = db.transaction('people', mode), s = t.objectStore('people');
+        const out = fn(s); t.oncomplete = () => res(out.result); t.onerror = () => rej(t.error);
       });
     };
-
-    const allPeople = () => tx('people', 'readonly', s => s.getAll());
-    const addPerson = p => tx('people', 'readwrite', s => s.add(p));
-    const delPerson = id => tx('people', 'readwrite', s => s.delete(id));
-
-    const allAttendance = () => tx('attendance', 'readonly', s => s.getAll());
-    const addAttendanceRecord = record => tx('attendance', 'readwrite', s => s.add(record));
-    const clearAttendanceRecords = async () => {
-      const db = await dbp;
-      return new Promise((res, rej) => {
-        const t = db.transaction('attendance', 'readwrite');
-        t.objectStore('attendance').clear();
-        t.oncomplete = () => res(true);
-        t.onerror = () => rej(t.error);
-      });
-    };
+    const allPeople = () => tx('readonly', s => s.getAll());
+    const addPerson = p => tx('readwrite', s => s.add(p));
+    const delPerson = id => tx('readwrite', s => s.delete(id));
 
     async function renderList() {
+      if (!isAdminAuthenticated) return;
       const people = await allPeople();
       if (!people.length) {
-        $('list').innerHTML = '<li class="py-3 text-center text-xs text-[#8b93a7] italic">Nobody enrolled yet.</li>';
+        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled.</li>';
         return;
       }
       
@@ -408,8 +313,8 @@
         nameSpan.textContent = `${p.name} (${p.samples.length} samples)`;
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'px-2.5 py-1 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-semibold active:scale-95 transition-all';
-        delBtn.textContent = 'Delete';
+        delBtn.className = 'px-2 py-0.5 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded text-[11px] font-semibold active:scale-95 transition-all';
+        delBtn.textContent = 'Remove';
         delBtn.onclick = async () => { await delPerson(p.id); renderList(); };
 
         li.appendChild(nameSpan);
@@ -418,93 +323,47 @@
       }
     }
 
-    async function renderAttendanceLogs() {
-      const logs = await allAttendance();
-      const listEl = $('attendance-list');
-      if (!logs.length) {
-        listEl.innerHTML = '<li class="py-3 text-center text-xs text-[#8b93a7] italic">No check-in activity recorded yet.</li>';
-        return;
-      }
-
-      listEl.innerHTML = '';
-      logs.sort((a, b) => b.timestamp - a.timestamp);
-
-      for (const log of logs) {
-        const li = document.createElement('li');
-        li.className = 'py-2 flex justify-between items-center text-xs';
-
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'flex flex-col';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'text-gray-200 font-bold';
-        nameSpan.textContent = log.name;
-
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'text-[10px] text-[#8b93a7]';
-        timeSpan.textContent = new Date(log.timestamp).toLocaleString();
-
-        infoDiv.appendChild(nameSpan);
-        infoDiv.appendChild(timeSpan);
-
-        const badge = document.createElement('span');
-        if (log.type === 'Check-In') {
-          badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-        } else {
-          badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30';
-        }
-        badge.textContent = log.type;
-
-        li.appendChild(infoDiv);
-        li.appendChild(badge);
-        listEl.appendChild(li);
-      }
-    }
-
-    $('btn-clear-logs').onclick = async () => {
-      await clearAttendanceRecords();
-      renderAttendanceLogs();
-      say("Attendance log cleared.");
-    };
-
-    /* ---------- Admin Mode Auth ---------- */
-    $('btn-toggle-admin').onclick = () => {
-      if (!isAdminLoggedIn) {
-        $('admin-modal').classList.remove('hidden');
-        $('admin-pin-input').value = '';
-        $('admin-pin-input').focus();
+    /* ---------- Admin Authentication Controls ---------- */
+    $('btn-admin-toggle').onclick = () => {
+      if (isAdminAuthenticated) {
+        logoutAdmin();
       } else {
-        isAdminLoggedIn = false;
-        $('admin-status-label').textContent = "Locked (Check-In Only)";
-        $('admin-status-label').className = "text-[10px] text-amber-400";
-        $('btn-toggle-admin').textContent = "Admin Login";
-        $('admin-enroll-container').classList.add('hidden');
-        $('enrolled-container').classList.add('hidden');
-        say("Logged out of Admin mode.");
+        $('admin-password').value = '';
+        $('admin-error').classList.add('hidden');
+        $('admin-modal').classList.remove('hidden');
+        $('admin-password').focus();
       }
     };
 
-    $('btn-cancel-pin').onclick = () => {
+    $('btn-modal-cancel').onclick = () => {
       $('admin-modal').classList.add('hidden');
     };
 
-    $('btn-submit-pin').onclick = () => {
-      const pin = $('admin-pin-input').value.trim();
-      if (pin === ADMIN_PIN) {
-        isAdminLoggedIn = true;
+    $('btn-modal-login').onclick = handleAdminLogin;
+    $('admin-password').onkeydown = e => { if (e.key === 'Enter') handleAdminLogin(); };
+
+    function handleAdminLogin() {
+      const pass = $('admin-password').value;
+      if (pass === ADMIN_PASSCODE) {
+        isAdminAuthenticated = true;
         $('admin-modal').classList.add('hidden');
-        $('admin-status-label').textContent = "Unlocked (Admin Mode Active)";
-        $('admin-status-label').className = "text-[10px] text-emerald-400";
-        $('btn-toggle-admin').textContent = "Exit Admin";
-        $('admin-enroll-container').classList.remove('hidden');
-        $('enrolled-container').classList.remove('hidden');
+        $('admin-panel').classList.remove('hidden');
+        $('admin-btn-text').textContent = "Exit Admin";
+        $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
         renderList();
-        say("Admin access granted.", "ok");
       } else {
-        showAlert("Authentication Error", "Incorrect Admin PIN! Default PIN is 1234", "error");
-        $('admin-pin-input').value = '';
+        $('admin-error').classList.remove('hidden');
       }
-    };
+    }
+
+    function logoutAdmin() {
+      isAdminAuthenticated = false;
+      $('admin-panel').classList.add('hidden');
+      $('admin-btn-text').textContent = "Admin";
+      $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
+    }
+
+    $('btn-admin-logout').onclick = logoutAdmin;
 
     /* ---------- Mobile Camera Setup ---------- */
     async function initCamera(facing = 'user') {
@@ -539,9 +398,7 @@
         }
       }
 
-      if (!stream) {
-        throw lastErr || new Error("Failed to initialize camera on this device.");
-      }
+      if (!stream) throw lastErr || new Error("Failed to capture camera stream.");
 
       mediaStream = stream;
       video.srcObject = mediaStream;
@@ -549,93 +406,64 @@
       
       currentFacingMode = facing;
       isCameraActive = true;
-      $('cam-btn-text').textContent = "Cam Active";
+      $('cam-btn-text').textContent = "Active";
       $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
     }
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Starting camera...', '');
+        say('Initializing Camera...', '');
         await initCamera(currentFacingMode);
-        say('Camera active. Keep face steady inside box.', '');
+        say('Terminal Active. Ready for Identification.', '');
       } catch (err) {
-        say('Camera error: ' + err.message, 'bad');
-        showAlert("Camera Access Error", "Could not access front camera: " + err.message, "error");
+        say('Camera Error: ' + err.message, 'bad');
       }
     };
 
     $('btn-flip').onclick = async () => {
       const nextFacing = currentFacingMode === 'user' ? 'environment' : 'user';
       try {
-        say('Switching camera...', '');
+        say('Switching Camera Lens...', '');
         await initCamera(nextFacing);
-        say('Camera switched.', '');
+        say('Camera Switched.', '');
       } catch (err) {
-        say('Switch error: ' + err.message, 'bad');
+        say('Switch Error: ' + err.message, 'bad');
       }
     };
 
-    /* ---------- Resilient Oppo Detection Loop ---------- */
+    /* ---------- Detection Loop & Drawing ---------- */
     let last = null;
 
     function draw(face) {
-      const w = video.videoWidth || 640;
-      const h = video.videoHeight || 480;
-      overlay.width = w; 
-      overlay.height = h;
-      ctx.clearRect(0, 0, w, h);
-      
+      overlay.width = video.videoWidth || 640; 
+      overlay.height = video.videoHeight || 480;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
       if (!face) return;
-      const [x, y, bw, bh] = face.box;
-      
-      // Draw Bounding Box
-      ctx.strokeStyle = '#2563eb'; 
-      ctx.lineWidth = 3; 
-      ctx.strokeRect(x, y, bw, bh);
-      
-      // Draw Face Mesh Dots
-      ctx.fillStyle = '#22d3ee';
-      if (face.mesh && face.mesh.length) {
-        for (const [px, py] of face.mesh) {
-          ctx.fillRect(px - 1, py - 1, 2, 2);
-        }
-      }
+      const [x, y, w, h] = face.box;
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = '#38bdf8';
+      for (const [px, py] of face.mesh || []) ctx.fillRect(px - 1, py - 1, 1.5, 1.5);
     }
 
     async function loop() {
       if (
         isModelReady && 
+        human.models &&
+        Object.keys(human.models).length > 0 &&
         isCameraActive && 
         !isDetecting && 
         !video.paused && 
         video.readyState >= 2 && 
-        video.videoWidth > 0
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
       ) {
         isDetecting = true;
         try {
-          let detectionInput = video;
-
-          // Oppo Browser / ColorOS Fallback:
-          // If direct HTMLVideoElement passing yields null due to hardware texture locks,
-          // draw video frame onto an intermediate canvas buffer first.
-          if ($('canvas-fallback-toggle').checked) {
-            frameCanvas.width = video.videoWidth;
-            frameCanvas.height = video.videoHeight;
-            frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
-            detectionInput = frameCanvas;
-          }
-
-          const r = await human.detect(detectionInput);
-          if (r && r.face && r.face.length > 0) {
-            last = r.face[0];
-            say('Face Detected! Ready for scanning.', 'ok');
-          } else {
-            last = null;
-            say('Align face in front of the camera...');
-          }
+          const r = await human.detect(video);
+          last = (r && r.face && r.face.length > 0) ? r.face[0] : null;
           draw(last);
         } catch (e) {
-          console.warn("Frame detection bypass:", e.message);
+          // Bypasses unready frame tensor predictions safely
         } finally {
           isDetecting = false;
         }
@@ -644,132 +472,81 @@
     }
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const livenessOK = f => !$('live').checked || ((f.real ?? 1) > 0.5 && (f.live ?? 1) > 0.5);
 
-    /* ---------- Enrollment Action ---------- */
+    /* ---------- Admin Enrollment ---------- */
     $('btn-enroll').onclick = async () => {
-      if (!isAdminLoggedIn) return say('Admin login required.', 'bad');
+      if (!isAdminAuthenticated) return;
       const name = $('name').value.trim();
-      if (!name) return say('Please enter user name first.', 'bad');
-      
+      if (!name) return say('Provide user name prior to capture.', 'bad');
       $('btn-enroll').disabled = true;
       const samples = [];
-      say("Hold steady for face capture...");
-
       for (let i = 0; i < 3; i++) {
-        say(`Capturing sample ${i + 1}/3…`);
-        await sleep(600);
+        say(`Capturing Sample ${i + 1}/3… Hold still.`);
+        await sleep(500);
         const f = last;
-        if (f && f.embedding && f.embedding.length > 0) {
-          samples.push(Array.from(f.embedding));
-        } else {
-          i--;
-          await sleep(400);
-        }
+        if (f && f.embedding?.length && livenessOK(f)) samples.push(Array.from(f.embedding));
+        else i--, await sleep(300);
+        if (samples.length === 3) break;
       }
-
       await addPerson({ name, samples, created: Date.now() });
       $('name').value = '';
-      say(`Successfully registered ${name}.`, 'ok');
-      showAlert("Registration Complete", `Successfully enrolled ${name} with 3 biometric samples.`, "success");
+      say(`Successfully Enrolled: ${name}`, 'ok');
       renderList();
       $('btn-enroll').disabled = false;
     };
 
-    /* ---------- Matching / Check-In / Check-Out Logic ---------- */
-    async function processCheckInOut(actionType) {
+    /* ---------- Public Identification (1:N) ---------- */
+    $('btn-verify').onclick = async () => {
       const people = await allPeople();
-      if (!people.length) {
-        showAlert("Database Empty", "No enrolled profiles found. Please login as Admin to register a face first.", "error");
-        return say('No enrolled profiles found.', 'bad');
-      }
-
+      if (!people.length) return say('Access Denied: No personnel enrolled.', 'bad');
       const f = last;
-      if (!f || !f.embedding || f.embedding.length === 0) {
-        return say('No face visible in camera frame.', 'bad');
-      }
+      if (!f || !f.embedding?.length) return say('Identification Failed: No face detected.', 'bad');
+      if (!livenessOK(f)) return say('Access Denied: Spoof detection triggered.', 'bad');
 
       let best = { name: null, sim: 0 };
-      for (const p of people) {
+      for (const p of people)
         for (const s of p.samples) {
           const sim = human.match.similarity(s, f.embedding);
           if (sim > best.sim) best = { name: p.name, sim };
         }
-      }
-
       const thr = +$('thr').value;
-
       if (best.sim >= thr) {
-        await addAttendanceRecord({
-          name: best.name,
-          type: actionType,
-          timestamp: Date.now()
-        });
-        renderAttendanceLogs();
-        const scorePercent = (best.sim * 100).toFixed(1);
-        say(`${actionType} recorded: ${best.name} (${scorePercent}%)`, 'ok');
-        showAlert(`${actionType} Success`, `Identity Verified: ${best.name}\nMatch Confidence: ${scorePercent}%`, "success");
+        say(`Access Granted: ${best.name} (${(best.sim * 100).toFixed(1)}%)`, 'ok');
       } else {
-        const scorePercent = (best.sim * 100).toFixed(1);
-        const thrPercent = (thr * 100).toFixed(0);
-        say(`Match failed (${scorePercent}% < ${thrPercent}% limit)`, 'bad');
-        showAlert("Match Failed", `Could not match face.\nBest similarity: ${scorePercent}% (Required: ${thrPercent}%)`, "error");
+        say(`Access Denied: Unrecognized User (${(best.sim * 100).toFixed(1)}%)`, 'bad');
       }
-    }
-
-    $('btn-checkin').onclick = () => processCheckInOut('Check-In');
-    $('btn-checkout').onclick = () => processCheckInOut('Check-Out');
+    };
 
     $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
 
-    /* ---------- App Initialization Sequence ---------- */
+    /* ---------- System Startup ---------- */
+    window.addEventListener('unhandledrejection', event => {
+      if (event.reason && String(event.reason).includes('inputNodes')) {
+        event.preventDefault();
+      }
+    });
+
     (async () => {
       try {
-        updateStatusBadge('Loading Models', 'working');
-        say('Initializing TensorFlow engine & models…');
+        say('Initializing Biometric Engine…');
 
-        // Warm up backend
         await human.init();
-        
-        // Mobile fallback for WebGL context creation failure
-        if (human.tf?.getBackend() !== 'webgl') {
-          console.warn("WebGL unavailable, falling back to WASM/CPU backend");
-        }
-
         await human.load(); 
-        await human.warmup();
 
         isModelReady = true;
 
-        updateStatusBadge('Cam Inactive', 'working');
-        say('Ready. Tap "Start Cam" to grant camera access.');
-
-        // Attempt automatic front-cam startup
         try {
           await initCamera('user');
-          updateStatusBadge('Scanning Active', 'ready');
-          say('Scanning active. Place face in view.');
+          say('Terminal Active. Ready for Identification.');
         } catch (camErr) {
-          say('Tap "Start Cam" to initialize camera stream.');
+          say('Tap "Start Cam" to grant camera access.');
         }
 
-        $('btn-checkin').disabled = $('btn-checkout').disabled = $('btn-enroll').disabled = false;
-        renderList(); 
-        renderAttendanceLogs();
+        $('btn-enroll').disabled = $('btn-verify').disabled = false;
         loop();
       } catch (e) {
-        updateStatusBadge('Error', 'error');
-        say('Model load failed: ' + e.message, 'bad');
-        // Final fallback to CPU backend on severe GPU failure
-        try {
-          human.config.backend = 'wasm';
-          await human.init();
-          isModelReady = true;
-          updateStatusBadge('WASM Mode', 'ready');
-          say('Running in low-overhead WASM mode.');
-          loop();
-        } catch (fallbackErr) {
-          showAlert("Engine Error", "Failed to load facial recognition models: " + e.message, "error");
-        }
+        say('Engine Initialization Failed: ' + e.message, 'bad');
       }
     })();
   </script>
