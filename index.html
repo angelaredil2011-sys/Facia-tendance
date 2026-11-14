@@ -91,7 +91,7 @@
       </div>
       <div>
         <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
-        <p class="text-[10px] text-[#64748b]" id="engine-tag">Biometric Terminal v2.5 Mobile</p>
+        <p class="text-[10px] text-[#64748b]" id="engine-tag">Biometric Terminal v2.6 HD</p>
       </div>
     </div>
     
@@ -105,10 +105,10 @@
   <!-- Main Viewport -->
   <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
 
-    <!-- Camera Stage Viewport (Adapts cleanly to mobile portrait/landscape sensors) -->
+    <!-- Camera Stage Viewport -->
     <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
       
-      <!-- Video Element with mobile inline streaming attributes -->
+      <!-- Video Element with crisp rendering -->
       <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
       
       <!-- Canvas Overlay -->
@@ -117,7 +117,7 @@
       <!-- Active Scanline Beam -->
       <div id="scan-beam" class="scan-beam hidden"></div>
 
-      <!-- Top-Left Telemetry Pills (Mesh & Face Lock Status) -->
+      <!-- Top-Left Telemetry Pills (Mesh, Face Lock & Stream Resolution) -->
       <div class="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
         <span id="telemetry-face" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-gray-300 flex items-center gap-1.5">
           <span id="telemetry-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -125,6 +125,9 @@
         </span>
         <span id="telemetry-mesh" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-sky-400">
           MESH: 0 PTS
+        </span>
+        <span id="telemetry-res" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-emerald-400">
+          RES: --
         </span>
       </div>
 
@@ -320,7 +323,7 @@
       }
     };
 
-    /* ---------- Human Configuration Optimized for Mobile & Desktop ---------- */
+    /* ---------- Human Configuration Optimized for HD Streams & Mobile ---------- */
     const baseConfig = {
       backend: 'webgl',
       wasmPath: 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/',
@@ -435,7 +438,7 @@
 
     $('btn-admin-logout').onclick = logoutAdmin;
 
-    /* ---------- Mobile Camera Setup ---------- */
+    /* ---------- High-Definition Camera Setup (1080p -> 720p -> Fallback) ---------- */
     async function initCamera(facing = 'user') {
       if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
@@ -449,10 +452,34 @@
         overlay.classList.remove('mirror');
       }
 
-      // Mobile-friendly resolution constraints (prevents high-res lag on phone sensors)
+      // Cascading HD resolution constraints (tries 1080p first, then 720p, then native max)
       const constraintOptions = [
-        { video: { facingMode: { exact: facing }, width: { ideal: 480 }, height: { ideal: 640 } }, audio: false },
-        { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        {
+          video: {
+            facingMode: { exact: facing },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        {
+          video: {
+            facingMode: facing,
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        {
+          video: {
+            facingMode: facing,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        },
         { video: { facingMode: facing }, audio: false },
         { video: true, audio: false }
       ];
@@ -471,6 +498,23 @@
 
       if (!stream) throw lastErr || new Error("Failed to capture camera stream.");
 
+      // Apply continuous autofocus & auto-exposure if supported by the phone lens
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && typeof videoTrack.getCapabilities === 'function') {
+        try {
+          const caps = videoTrack.getCapabilities();
+          const advanced = {};
+          if (caps.focusMode && caps.focusMode.includes('continuous')) advanced.focusMode = 'continuous';
+          if (caps.exposureMode && caps.exposureMode.includes('continuous')) advanced.exposureMode = 'continuous';
+          if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) advanced.whiteBalanceMode = 'continuous';
+          if (Object.keys(advanced).length > 0) {
+            await videoTrack.applyConstraints({ advanced: [advanced] });
+          }
+        } catch (e) {
+          // Silently skip if hardware rejects advanced constraints
+        }
+      }
+
       mediaStream = stream;
       video.srcObject = mediaStream;
       
@@ -480,9 +524,12 @@
       });
       await video.play();
       
-      // Sync canvas dimensions strictly to actual mobile video sensor stream
-      overlay.width = video.videoWidth || 480;
-      overlay.height = video.videoHeight || 640;
+      // Sync canvas dimensions strictly to actual HD sensor stream
+      const actualW = video.videoWidth || 1280;
+      const actualH = video.videoHeight || 720;
+      overlay.width = actualW;
+      overlay.height = actualH;
+      $('telemetry-res').textContent = `RES: ${actualW}×${actualH}`;
 
       currentFacingMode = facing;
       isCameraActive = true;
@@ -492,9 +539,9 @@
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Initializing Camera...', '');
+        say('Initializing HD Camera...', '');
         await initCamera(currentFacingMode);
-        say('Terminal Active. Ready for Identification.', '');
+        say('HD Terminal Active. Ready for Identification.', '');
       } catch (err) {
         say('Camera Error: ' + err.message, 'bad');
       }
@@ -527,7 +574,7 @@
       $('scan-beam').classList.toggle('hidden', !autoScanEnabled);
     };
 
-    /* ---------- Detection Loop & High-Visibility Mobile Mesh Drawing ---------- */
+    /* ---------- Detection Loop & High-DPI HD Mesh Drawing ---------- */
     let last = null;
 
     // Key facial contour landmark indices (468-point FaceMesh topology)
@@ -536,7 +583,7 @@
     const RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398, 362];
     const LIPS_OUTER = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185, 61];
 
-    function drawContour(mesh, indices, color, lineWidth = 1.2) {
+    function drawContour(mesh, indices, color, lineWidth = 1.5) {
       ctx.beginPath();
       let started = false;
       for (const idx of indices) {
@@ -551,11 +598,12 @@
     }
 
     function draw(face) {
-      const vw = video.videoWidth || 480;
-      const vh = video.videoHeight || 640;
+      const vw = video.videoWidth || 1280;
+      const vh = video.videoHeight || 720;
       if (overlay.width !== vw || overlay.height !== vh) {
         overlay.width = vw;
         overlay.height = vh;
+        $('telemetry-res').textContent = `RES: ${vw}×${vh}`;
       }
 
       ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -577,32 +625,31 @@
       const isPulsing = Date.now() < scanPulseUntil;
       const primaryColor = isPulsing ? '#34d399' : '#38bdf8';
 
-      // Corner Brackets Reticle (clean mobile HUD framing)
-      const corner = Math.max(16, Math.min(w, h) * 0.18);
+      // Scale stroke thickness dynamically to HD resolution so lines stay crisp
+      const resScale = Math.max(1, overlay.width / 540);
+
+      // Corner Brackets Reticle
+      const corner = Math.max(20, Math.min(w, h) * 0.18);
       ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.5 * resScale;
       ctx.beginPath();
-      // Top-left
       ctx.moveTo(x, y + corner); ctx.lineTo(x, y); ctx.lineTo(x + corner, y);
-      // Top-right
       ctx.moveTo(x + w - corner, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + corner);
-      // Bottom-left
       ctx.moveTo(x, y + h - corner); ctx.lineTo(x, y + h); ctx.lineTo(x + corner, y + h);
-      // Bottom-right
       ctx.moveTo(x + w - corner, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - corner);
       ctx.stroke();
 
       if (!showMesh || meshPts.length === 0) return;
 
-      // Draw connected biometric wireframe contours
-      drawContour(meshPts, FACE_OVAL, 'rgba(56, 189, 248, 0.55)', 1.3);
-      drawContour(meshPts, LEFT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2);
-      drawContour(meshPts, RIGHT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2);
-      drawContour(meshPts, LIPS_OUTER, 'rgba(56, 189, 248, 0.7)', 1.2);
+      // Draw connected biometric wireframe contours scaled for HD
+      drawContour(meshPts, FACE_OVAL, 'rgba(56, 189, 248, 0.55)', 1.3 * resScale);
+      drawContour(meshPts, LEFT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2 * resScale);
+      drawContour(meshPts, RIGHT_EYE, 'rgba(96, 165, 250, 0.85)', 1.2 * resScale);
+      drawContour(meshPts, LIPS_OUTER, 'rgba(56, 189, 248, 0.7)', 1.2 * resScale);
 
-      // Draw 468 3D mesh nodes scaled cleanly for high-DPI mobile screens
+      // Draw 468 3D mesh nodes scaled cleanly for HD streams
       ctx.fillStyle = isPulsing ? 'rgba(52, 211, 153, 0.9)' : 'rgba(125, 211, 252, 0.85)';
-      const dotSize = Math.max(1.6, overlay.width / 260);
+      const dotSize = Math.max(1.8, 1.8 * resScale);
       for (let i = 0; i < meshPts.length; i++) {
         const [px, py] = meshPts[i];
         ctx.fillRect(px - dotSize / 2, py - dotSize / 2, dotSize, dotSize);
@@ -627,7 +674,6 @@
           last = (r && r.face && r.face.length > 0) ? r.face[0] : null;
           draw(last);
 
-          // Continuous hands-free scan on mobile when Auto is enabled
           if (autoScanEnabled && last && last.embedding?.length && (Date.now() - lastAutoScanTime > 2000)) {
             lastAutoScanTime = Date.now();
             await runIdentification(true);
@@ -656,7 +702,7 @@
       let attempts = 0;
       while (samples.length < 3 && attempts < 20) {
         attempts++;
-        say(`Capturing Mesh Sample ${samples.length + 1}/3… Hold still.`);
+        say(`Capturing HD Mesh Sample ${samples.length + 1}/3… Hold still.`);
         await sleep(450);
         const f = last;
         if (f && f.embedding?.length && livenessOK(f)) {
@@ -690,7 +736,7 @@
 
       if (!isAuto) {
         $('scan-beam').classList.remove('hidden');
-        say('Scanning Facial Mesh & Embeddings…');
+        say('Scanning HD Facial Mesh & Embeddings…');
         await sleep(250);
         if (!autoScanEnabled) $('scan-beam').classList.add('hidden');
       }
@@ -741,21 +787,20 @@
         try {
           await human.init();
           await human.load();
-          $('engine-tag').textContent = 'Terminal v2.5 • WebGL GPU';
+          $('engine-tag').textContent = 'Terminal v2.6 HD • WebGL GPU';
         } catch (webglErr) {
-          // Fallback to WASM if phone browser blocks or fails WebGL tensor shaders
           say('Switching to Mobile WASM Engine…');
           human = new Human({ ...baseConfig, backend: 'wasm' });
           await human.init();
           await human.load();
-          $('engine-tag').textContent = 'Terminal v2.5 • Mobile WASM';
+          $('engine-tag').textContent = 'Terminal v2.6 HD • Mobile WASM';
         }
 
         isModelReady = true;
 
         try {
           await initCamera('user');
-          say('Terminal Active. Ready for Identification.');
+          say('HD Terminal Active. Ready for Identification.');
         } catch (camErr) {
           say('Tap "Start" to grant camera access.');
         }
