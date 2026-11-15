@@ -178,7 +178,7 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                STRICT BIOMETRIC READY
+                BIOMETRIC READY
               </span>
             </div>
 
@@ -206,7 +206,7 @@
         <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
-          <!-- Attendance Logging Panel -->
+          <!-- Attendance Logging Panel (No ID typing required to scan) -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -244,7 +244,7 @@
             </div>
 
             <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
-              Select your shift, center your face in the grid, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+              Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
             </p>
           </div>
 
@@ -289,7 +289,7 @@
               <!-- Sensitivity Slider -->
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
-                  <span class="text-[11px] sm:text-xs text-gray-400">Strict Match Threshold</span>
+                  <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
                   <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.75</span>
                 </div>
                 <input type="range" id="thr" min="0.6" max="0.95" step="0.01" value="0.75" 
@@ -331,7 +331,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • Strict Biometric Mode
+      Facia-tendance Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
     </footer>
 
   </div>
@@ -515,6 +515,7 @@
     // Re-Lock Terminal Handler
     $('btn-lock-terminal').onclick = () => {
       isTerminalUnlocked = false;
+      // Stop camera stream when locking homescreen for privacy & battery
       if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
@@ -527,6 +528,7 @@
       $('btn-enroll').disabled = true;
       say('Tap "Start" to activate camera terminal.');
 
+      // Also lock admin panel if open
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
       $('attendance-panel').classList.remove('hidden');
@@ -538,6 +540,7 @@
       $('terminal-password').focus();
     };
 
+    // Focus password input on load
     window.addEventListener('DOMContentLoaded', () => {
       $('terminal-password').focus();
     });
@@ -800,15 +803,43 @@
       return signature;
     }
 
-    function compareSignatures(sigA, sigB) {
-      if (!sigA || !sigB || sigA.length !== sigB.length) return 0;
-      let diff = 0;
-      for (let i = 0; i < sigA.length; i++) {
-        diff += Math.abs(sigA[i] - sigB[i]);
+    /* Robust L2-Normalized Cosine Similarity with String/JSON/Object Parsing */
+    function parseSignature(sig) {
+      if (!sig) return [];
+      if (Array.isArray(sig)) return sig;
+      if (typeof sig === 'string') {
+        try { const parsed = JSON.parse(sig); if (Array.isArray(parsed)) return parsed; } catch(e) {}
       }
-      const maxDiff = sigA.length * 255;
-      const similarity = Math.max(0, 1 - (diff / maxDiff));
-      return similarity;
+      if (typeof sig === 'object') {
+        return Object.values(sig);
+      }
+      return [];
+    }
+
+    function compareSignatures(sigA, sigB) {
+      const arrA = parseSignature(sigA);
+      const arrB = parseSignature(sigB);
+      
+      if (arrA.length === 0 || arrB.length === 0 || arrA.length !== arrB.length) return 0;
+      
+      const normA = l2Normalize(arrA);
+      const normB = l2Normalize(arrB);
+      
+      let dotProduct = 0;
+      for (let i = 0; i < normA.length; i++) {
+        dotProduct += (normA[i] || 0) * (normB[i] || 0);
+      }
+      return Math.max(0, Math.min(1, dotProduct));
+    }
+
+    function l2Normalize(arr) {
+      let sumSq = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const val = Number(arr[i]) || 0;
+        sumSq += val * val;
+      }
+      const mag = Math.sqrt(sumSq) || 1;
+      return arr.map(val => (Number(val) || 0) / mag);
     }
 
     function drawOverlay() {
@@ -869,7 +900,7 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Capturing strict biometric signature…');
+        say('Capturing high-accuracy biometric signature…');
         await sleep(600);
 
         const signature = extractHighAccuracySignature(video);
@@ -901,7 +932,7 @@
       const shift = $('verify-shift').value;
 
       try {
-        say(`Strict Scanning for ${actionType} (${shift})…`);
+        say(`Scanning face for ${actionType} (${shift})…`);
         await sleep(400);
 
         const currentSig = extractHighAccuracySignature(video);
