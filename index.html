@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Enterprise Biometric Attendance Terminal</title>
+  <title>Facia-tendance Terminal</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
@@ -71,7 +71,7 @@
           <span class="inline-block px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-semibold tracking-widest uppercase text-blue-400 mb-1">
             Terminal Gateway
           </span>
-          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Enterprise Biometric Auth</h1>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Facia-tendance Gateway</h1>
           <p class="text-xs text-[#64748b] mt-0.5">Enter terminal access passcode to unlock station</p>
         </div>
         <div id="lock-clock" class="pt-1 font-mono text-xs text-gray-400 tracking-wider"></div>
@@ -81,7 +81,7 @@
       <form id="terminal-unlock-form" class="space-y-4">
         <div class="space-y-1.5">
           <label for="terminal-password" class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider text-center">
-            Station Passcode (Default: 123587)
+            Station Passcode
           </label>
           <div class="relative">
             <input type="password" id="terminal-password" inputmode="numeric" autocomplete="off" placeholder="••••••" required
@@ -127,7 +127,7 @@
             <i class="fa-solid fa-shield-halved text-lg sm:text-xl"></i>
           </div>
           <div>
-            <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
+            <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
             <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Cloud Synced Biometrics</p>
           </div>
         </div>
@@ -178,7 +178,7 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                BIOMETRIC READY
+                STRICT BIOMETRIC READY
               </span>
             </div>
 
@@ -244,7 +244,7 @@
             </div>
 
             <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
-              Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+              Select your shift, center your face in the grid, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
             </p>
           </div>
 
@@ -289,10 +289,10 @@
               <!-- Sensitivity Slider -->
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
-                  <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
-                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.60</span>
+                  <span class="text-[11px] sm:text-xs text-gray-400">Strict Match Threshold</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.75</span>
                 </div>
-                <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.60" 
+                <input type="range" id="thr" min="0.6" max="0.95" step="0.01" value="0.75" 
                        class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
               </div>
             </div>
@@ -331,7 +331,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Enterprise Biometric Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
+      Facia-tendance Terminal • Supabase Cloud Synced • Strict Biometric Mode
     </footer>
 
   </div>
@@ -515,7 +515,6 @@
     // Re-Lock Terminal Handler
     $('btn-lock-terminal').onclick = () => {
       isTerminalUnlocked = false;
-      // Stop camera stream when locking homescreen for privacy & battery
       if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
@@ -528,7 +527,6 @@
       $('btn-enroll').disabled = true;
       say('Tap "Start" to activate camera terminal.');
 
-      // Also lock admin panel if open
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
       $('attendance-panel').classList.remove('hidden');
@@ -540,7 +538,6 @@
       $('terminal-password').focus();
     };
 
-    // Focus password input on load
     window.addEventListener('DOMContentLoaded', () => {
       $('terminal-password').focus();
     });
@@ -746,27 +743,27 @@
       showMesh = !showMesh;
     };
 
-    /* Robust Biometric Face Signature Extraction */
+    /* Strict & High-Accuracy Biometric Face Signature Extraction */
     function extractHighAccuracySignature(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = 160; canvas.height = 160;
+      canvas.width = 200; canvas.height = 200;
       const c = canvas.getContext('2d');
       
-      // Draw center region of video feed
+      // Precise center facial crop
       const vw = videoEl.videoWidth;
       const vh = videoEl.videoHeight;
-      const sz = Math.min(vw, vh);
+      const sz = Math.min(vw, vh) * 0.75; // tighter crop around facial zone
       const sx = (vw - sz) / 2;
       const sy = (vh - sz) / 2;
 
-      c.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 160, 160);
-      const imgData = c.getImageData(0, 0, 160, 160).data;
+      c.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 200, 200);
+      const imgData = c.getImageData(0, 0, 200, 200).data;
       
-      // Relaxed luminance variance check to support various indoor lighting conditions
+      // Strict luminance & contrast variance validation to reject low quality/blurry feeds
       let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
       for (let i = 0; i < imgData.length; i += 4) {
         const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
@@ -776,19 +773,21 @@
       const meanLuma = lumaSum / totalPixels;
       const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
       
-      if (variance < 15.0) {
-        throw new Error("Camera image is too dark or uniform. Ensure proper lighting.");
+      if (variance < 28.0) {
+        throw new Error("Strict Check Failed: Image lacks facial contrast or sharpness. Center your face in the grid.");
       }
 
-      const zoneSize = 160 / 4;
+      // 5x5 Grid Zone Signature extraction for granular feature comparison
+      const gridSize = 5;
+      const zoneSize = 200 / gridSize;
       const signature = [];
 
-      for (let zr = 0; zr < 4; zr++) {
-        for (let zc = 0; zc < 4; zc++) {
+      for (let zr = 0; zr < gridSize; zr++) {
+        for (let zc = 0; zc < gridSize; zc++) {
           let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 2) {
-            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 2) {
-              const idx = (Math.floor(y) * 160 + Math.floor(x)) * 4;
+          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 1) {
+            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 1) {
+              const idx = (Math.floor(y) * 200 + Math.floor(x)) * 4;
               rSum += imgData[idx];
               gSum += imgData[idx+1];
               bSum += imgData[idx+2];
@@ -870,7 +869,7 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Capturing high-accuracy biometric signature…');
+        say('Capturing strict biometric signature…');
         await sleep(600);
 
         const signature = extractHighAccuracySignature(video);
@@ -902,7 +901,7 @@
       const shift = $('verify-shift').value;
 
       try {
-        say(`Scanning face for ${actionType} (${shift})…`);
+        say(`Strict Scanning for ${actionType} (${shift})…`);
         await sleep(400);
 
         const currentSig = extractHighAccuracySignature(video);
