@@ -81,7 +81,7 @@
       <form id="terminal-unlock-form" class="space-y-4">
         <div class="space-y-1.5">
           <label for="terminal-password" class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider text-center">
-            Station Passcode
+            Station Passcode (Default: 123587)
           </label>
           <div class="relative">
             <input type="password" id="terminal-password" inputmode="numeric" autocomplete="off" placeholder="••••••" required
@@ -206,7 +206,7 @@
         <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
-          <!-- Attendance Logging Panel (No ID typing required to scan) -->
+          <!-- Attendance Logging Panel -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -746,15 +746,27 @@
       showMesh = !showMesh;
     };
 
-    /* High Accuracy Face Signature Extraction */
+    /* Robust Biometric Face Signature Extraction */
     function extractHighAccuracySignature(videoEl) {
+      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
+        throw new Error("Camera stream not active or ready.");
+      }
+
       const canvas = document.createElement('canvas');
       canvas.width = 160; canvas.height = 160;
       const c = canvas.getContext('2d');
-      c.drawImage(videoEl, 20, 20, 120, 120, 0, 0, 160, 160);
+      
+      // Draw center region of video feed
+      const vw = videoEl.videoWidth;
+      const vh = videoEl.videoHeight;
+      const sz = Math.min(vw, vh);
+      const sx = (vw - sz) / 2;
+      const sy = (vh - sz) / 2;
+
+      c.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 160, 160);
       const imgData = c.getImageData(0, 0, 160, 160).data;
       
-      // Calculate luminance variance to ensure a real subject/face is present
+      // Relaxed luminance variance check to support various indoor lighting conditions
       let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
       for (let i = 0; i < imgData.length; i += 4) {
         const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
@@ -764,8 +776,8 @@
       const meanLuma = lumaSum / totalPixels;
       const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
       
-      if (variance < 45.0) {
-        throw new Error("No distinct face detected. Please face the camera properly.");
+      if (variance < 15.0) {
+        throw new Error("Camera image is too dark or uniform. Ensure proper lighting.");
       }
 
       const zoneSize = 160 / 4;
@@ -774,8 +786,8 @@
       for (let zr = 0; zr < 4; zr++) {
         for (let zc = 0; zc < 4; zc++) {
           let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 4) {
-            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 4) {
+          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 2) {
+            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 2) {
               const idx = (Math.floor(y) * 160 + Math.floor(x)) * 4;
               rSum += imgData[idx];
               gSum += imgData[idx+1];
@@ -783,7 +795,7 @@
               count++;
             }
           }
-          signature.push(rSum / count, gSum / count, bSum / count);
+          signature.push(rSum / (count || 1), gSum / (count || 1), bSum / (count || 1));
         }
       }
       return signature;
