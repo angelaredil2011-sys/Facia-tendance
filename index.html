@@ -48,13 +48,11 @@
 <body class="min-h-screen bg-[#0a0c10] text-[#f1f5f9] flex flex-col justify-between relative selection:bg-blue-600/30">
 
   <!-- ======================================================== -->
-  <!-- INITIAL HOMESCREEN / TERMINAL LOCK SCREEN                -->
+  <!-- TERMINAL LOCK SCREEN / HOMESCREEN                        -->
   <!-- ======================================================== -->
   <section id="terminal-lock-screen" class="fixed inset-0 z-50 bg-[#0a0c10] flex items-center justify-center p-4 sm:p-6">
-    <!-- Subtle Background Grid Glow -->
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.08)_0%,transparent_70%)] pointer-events-none"></div>
 
-    <!-- Homescreen Fullscreen Toggle -->
     <button id="btn-lock-fullscreen" type="button" title="Toggle Fullscreen"
             class="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-lg bg-[#12161f]/90 hover:bg-[#1f293d] border border-[#1f293d] text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95 shadow-lg">
       <i id="lock-fullscreen-icon" class="fa-solid fa-expand text-[11px] text-sky-400"></i>
@@ -62,7 +60,6 @@
     </button>
 
     <div class="w-full max-w-sm md:max-w-md bg-[#12161f] border border-[#1f293d] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in">
-      <!-- Brand Emblem & Live Clock -->
       <div class="text-center space-y-2">
         <div class="w-14 h-14 rounded-2xl bg-[#2563eb]/15 border border-[#2563eb]/40 text-[#3b82f6] flex items-center justify-center mx-auto text-2xl shadow-inner">
           <i class="fa-solid fa-fingerprint"></i>
@@ -77,7 +74,6 @@
         <div id="lock-clock" class="pt-1 font-mono text-xs text-gray-400 tracking-wider"></div>
       </div>
 
-      <!-- Passcode Input Form -->
       <form id="terminal-unlock-form" class="space-y-4">
         <div class="space-y-1.5">
           <label for="terminal-password" class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider text-center">
@@ -103,7 +99,6 @@
         </button>
       </form>
 
-      <!-- Responsive Device Indicator Footer -->
       <div class="pt-2 border-t border-[#1f293d] flex items-center justify-between text-[10px] text-[#64748b]">
         <span class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -115,11 +110,10 @@
   </section>
 
   <!-- ======================================================== -->
-  <!-- MAIN APPLICATION SHELL (Hidden until unlocked)           -->
+  <!-- MAIN APPLICATION SHELL                                   -->
   <!-- ======================================================== -->
   <div id="app-shell" class="hidden min-h-screen flex flex-col justify-between w-full">
 
-    <!-- Responsive Header Section -->
     <header class="w-full border-b border-[#1f293d] bg-[#12161f]/95 backdrop-blur-md sticky top-0 z-30 shadow-md">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
@@ -128,26 +122,23 @@
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
-            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Cloud Synced Biometrics</p>
+            <p class="text-[10px] sm:text-xs text-[#64748b]">Cloud Synced Biometrics</p>
           </div>
         </div>
         
         <div class="flex items-center gap-2 sm:gap-3">
-          <!-- Fullscreen Toggle Button -->
           <button id="btn-fullscreen-toggle" title="Toggle Fullscreen Mode"
                   class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i id="fullscreen-icon" class="fa-solid fa-expand text-[11px] text-sky-400"></i>
             <span id="fullscreen-btn-text" class="hidden sm:inline">Fullscreen</span>
           </button>
 
-          <!-- Lock Terminal Button -->
           <button id="btn-lock-terminal" title="Lock Homescreen"
                   class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-400 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i class="fa-solid fa-power-off text-[11px] text-rose-400"></i>
             <span class="hidden sm:inline">Lock Screen</span>
           </button>
 
-          <!-- Admin Toggle Button -->
           <button id="btn-admin-toggle" class="px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i id="admin-icon" class="fa-solid fa-lock text-[11px] text-amber-400"></i>
             <span id="admin-btn-text">Admin</span>
@@ -156,35 +147,28 @@
       </div>
     </header>
 
-    <!-- Adaptive Main Viewport:
-         - Phone (< 768px): Single column stacked
-         - Tablet (768px - 1023px): Balanced two-column split (6/6)
-         - Desktop/PC (>= 1024px): Wide 12-column dashboard (7 cols camera / 5 cols controls) -->
     <main class="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col justify-center">
-      
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
 
-        <!-- LEFT / TOP COLUMN: Camera Stage Viewport -->
+        <!-- Camera Stage Viewport -->
         <div class="md:col-span-6 lg:col-span-7 w-full">
           <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] lg:aspect-[16/11] bg-black rounded-2xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
             
             <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
             <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
 
-            <!-- Top-Left Telemetry Pills -->
             <div class="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-col gap-1.5 pointer-events-none">
-              <span id="telemetry-face" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-gray-300 flex items-center gap-1.5">
+              <span class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-gray-300 flex items-center gap-1.5">
                 <span id="telemetry-dot" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400"></span>
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
-              <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
+              <span class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
                 BIOMETRIC READY
               </span>
             </div>
 
-            <!-- Camera Action Floating Controls -->
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+              <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/85 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
                 <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
               </button>
               <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -196,17 +180,16 @@
               </button>
             </div>
 
-            <!-- Formal Status HUD Banner -->
             <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
               Tap "Start" to activate camera terminal.
             </div>
           </div>
         </div>
 
-        <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
+        <!-- Attendance & Admin Control Panels -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
-          <!-- Attendance Logging Panel (No ID typing required to scan) -->
+          <!-- Attendance Verification Panel -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -219,7 +202,6 @@
             </div>
 
             <div class="space-y-3.5 pt-1">
-              <!-- Shift Dropdown Menu -->
               <div>
                 <label class="text-[11px] sm:text-xs text-gray-400 font-medium mb-1.5 block">Select Shift Schedule</label>
                 <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-11 text-xs sm:text-sm text-white font-medium focus:outline-none focus:border-[#2563eb]">
@@ -228,7 +210,6 @@
                 </select>
               </div>
 
-              <!-- Check-In / Check-Out Buttons -->
               <div class="grid grid-cols-2 gap-3 pt-1">
                 <button id="btn-checkin" disabled 
                         class="h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
@@ -248,7 +229,7 @@
             </p>
           </div>
 
-          <!-- ADMIN PROTECTED CONTAINER -->
+          <!-- Admin Panel -->
           <div id="admin-panel" class="hidden space-y-4">
             <div class="bg-[#12161f] border border-amber-500/30 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl">
               <div class="flex items-center justify-between pb-2.5 border-b border-[#1f293d]">
@@ -261,7 +242,6 @@
                 </button>
               </div>
 
-              <!-- Enrollment Form: Name + ID + Shift Dropdown -->
               <div class="space-y-2.5 pt-1">
                 <label class="text-[11px] sm:text-xs text-gray-400 font-medium block">New User Enrollment</label>
                 <div class="space-y-2.5">
@@ -286,7 +266,6 @@
                 </div>
               </div>
 
-              <!-- Sensitivity Slider -->
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
                   <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
@@ -297,7 +276,7 @@
               </div>
             </div>
 
-            <!-- Enrolled Personnel Directory -->
+            <!-- Personnel Directory -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -311,7 +290,7 @@
               </ul>
             </div>
 
-            <!-- Attendance Activity Logs -->
+            <!-- Attendance Logs -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -329,14 +308,13 @@
       </div>
     </main>
 
-    <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
       Facia-tendance Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
     </footer>
 
   </div>
 
-  <!-- ADMIN AUTHENTICATION MODAL -->
+  <!-- Admin Modal -->
   <div id="admin-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-[#12161f] border border-[#1f293d] w-full max-w-xs sm:max-w-sm rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl">
       <div class="text-center space-y-1.5">
@@ -370,7 +348,6 @@
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
     const ctx = overlay.getContext('2d');
 
-    // Passcodes (Terminal Homescreen Lock & Admin Panel)
     const TERMINAL_PASSCODE = '123587';
     const ADMIN_PASSCODE = '123587';
 
@@ -381,9 +358,7 @@
     let isCameraActive = false;
     let showMesh = true;
 
-    // ========================================================
-    // SUPABASE CONNECTION
-    // ========================================================
+    // Supabase Client Setup
     const SUPABASE_URL = 'https://ahitbnftioivzbvrenls.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_NhsYm3Tn9Um1XsyEh8ahyg_wJPO5DfP';
     
@@ -394,9 +369,7 @@
       console.warn('Supabase initialization warning:', e);
     }
 
-    // ========================================================
-    // HOMESCREEN LOCK & RESPONSIVE DEVICE DETECTION
-    // ========================================================
+    // Clock & Viewport Helpers
     function updateLockClock() {
       const now = new Date();
       const dateStr = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -410,95 +383,53 @@
       const w = window.innerWidth;
       const label = $('device-mode-label');
       if (!label) return;
-      if (w < 768) label.textContent = 'Mobile View';
-      else if (w < 1024) label.textContent = 'Tablet View';
-      else label.textContent = 'Desktop / PC View';
+      label.textContent = w < 768 ? 'Mobile View' : w < 1024 ? 'Tablet View' : 'Desktop View';
     }
     window.addEventListener('resize', updateDeviceBadge);
     updateDeviceBadge();
 
-    // ========================================================
-    // FULLSCREEN MODE CONTROLLER (Cross-Browser + Mobile Support)
-    // ========================================================
+    // Fullscreen Controller
     function isDocumentFullscreen() {
-      return !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
+      return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
     }
 
     async function toggleFullscreenMode() {
       const docEl = document.documentElement;
       try {
         if (!isDocumentFullscreen()) {
-          if (docEl.requestFullscreen) {
-            await docEl.requestFullscreen();
-          } else if (docEl.webkitRequestFullscreen) {
-            await docEl.webkitRequestFullscreen();
-          } else if (docEl.msRequestFullscreen) {
-            await docEl.msRequestFullscreen();
-          }
+          if (docEl.requestFullscreen) await docEl.requestFullscreen();
+          else if (docEl.webkitRequestFullscreen) await docEl.webkitRequestFullscreen();
         } else {
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            await document.webkitExitFullscreen();
-          } else if (document.msExitFullscreen) {
-            await document.msExitFullscreen();
-          }
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
         }
       } catch (err) {
-        console.warn('Fullscreen request failed:', err);
+        console.warn('Fullscreen toggle failed:', err);
       }
     }
 
     function syncFullscreenUI() {
       const active = isDocumentFullscreen();
-      const headerIcon = $('fullscreen-icon');
-      const headerText = $('fullscreen-btn-text');
-      const lockIcon = $('lock-fullscreen-icon');
-
-      if (headerIcon) {
-        headerIcon.className = active
-          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
-          : 'fa-solid fa-expand text-[11px] text-sky-400';
-      }
-      if (headerText) {
-        headerText.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
-      }
-      if (lockIcon) {
-        lockIcon.className = active
-          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
-          : 'fa-solid fa-expand text-[11px] text-sky-400';
-      }
+      const hIcon = $('fullscreen-icon'), hText = $('fullscreen-btn-text'), lIcon = $('lock-fullscreen-icon');
+      if (hIcon) hIcon.className = active ? 'fa-solid fa-compress text-[11px] text-emerald-400' : 'fa-solid fa-expand text-[11px] text-sky-400';
+      if (hText) hText.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+      if (lIcon) lIcon.className = active ? 'fa-solid fa-compress text-[11px] text-emerald-400' : 'fa-solid fa-expand text-[11px] text-sky-400';
     }
 
     $('btn-fullscreen-toggle').onclick = toggleFullscreenMode;
     $('btn-lock-fullscreen').onclick = toggleFullscreenMode;
-    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
-      document.addEventListener(evt, syncFullscreenUI);
-    });
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => document.addEventListener(evt, syncFullscreenUI));
 
-    // Toggle Password Visibility on Homescreen
+    // Unlock & Lock Handlers
     $('btn-toggle-lock-vis').onclick = () => {
-      const pwd = $('terminal-password');
-      const icon = $('lock-vis-icon');
-      if (pwd.type === 'password') {
-        pwd.type = 'text';
-        icon.className = 'fa-solid fa-eye-slash';
-      } else {
-        pwd.type = 'password';
-        icon.className = 'fa-solid fa-eye';
-      }
+      const pwd = $('terminal-password'), icon = $('lock-vis-icon');
+      pwd.type = pwd.type === 'password' ? 'text' : 'password';
+      icon.className = pwd.type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
     };
 
-    // Unlock Terminal Handler
     $('terminal-unlock-form').onsubmit = (e) => {
       e.preventDefault();
-      const inputVal = $('terminal-password').value.trim();
-      if (inputVal === TERMINAL_PASSCODE) {
+      if ($('terminal-password').value.trim() === TERMINAL_PASSCODE) {
         isTerminalUnlocked = true;
         $('terminal-lock-error').classList.add('hidden');
         $('terminal-password').value = '';
@@ -512,23 +443,15 @@
       }
     };
 
-    // Re-Lock Terminal Handler
     $('btn-lock-terminal').onclick = () => {
       isTerminalUnlocked = false;
-      // Stop camera stream when locking homescreen for privacy & battery
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = null;
-      }
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
       isCameraActive = false;
       $('cam-btn-text').textContent = 'Start';
       $('btn-start-cam').classList.replace('bg-emerald-600', 'bg-[#2563eb]');
-      $('btn-checkin').disabled = true;
-      $('btn-checkout').disabled = true;
-      $('btn-enroll').disabled = true;
+      $('btn-checkin').disabled = true; $('btn-checkout').disabled = true; $('btn-enroll').disabled = true;
       say('Tap "Start" to activate camera terminal.');
 
-      // Also lock admin panel if open
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
       $('attendance-panel').classList.remove('hidden');
@@ -540,14 +463,9 @@
       $('terminal-password').focus();
     };
 
-    // Focus password input on load
-    window.addEventListener('DOMContentLoaded', () => {
-      $('terminal-password').focus();
-    });
+    window.addEventListener('DOMContentLoaded', () => $('terminal-password').focus());
 
-    // ========================================================
-    // STATUS BANNER & BIOMETRIC OPERATIONS
-    // ========================================================
+    // Status Banner & UI Helpers
     const say = (msg, cls = '') => { 
       banner.textContent = msg; 
       banner.className = 'absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold backdrop-blur-md transition-colors duration-300 ' + 
@@ -555,27 +473,22 @@
       
       const badge = $('status-badge');
       if (cls === 'ok') {
-        badge.textContent = 'Success';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        badge.textContent = 'Success'; badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
       } else if (cls === 'bad') {
-        badge.textContent = 'Failed';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
+        badge.textContent = 'Failed'; badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
       } else {
-        badge.textContent = isCameraActive ? 'Active' : 'Standby';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
+        badge.textContent = isCameraActive ? 'Active' : 'Standby'; badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
       }
     };
 
-    /* Supabase Cloud Operations */
+    // Cloud Operations
     async function fetchPersonnel() {
       if (!supabaseClient) return;
       try {
         const { data, error } = await supabaseClient.from('enrolled_personnel').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         renderPersonnelList(data || []);
-      } catch (e) {
-        console.error('Fetch personnel error:', e.message);
-      }
+      } catch (e) { console.error('Fetch personnel error:', e.message); }
     }
 
     async function fetchLogs() {
@@ -584,18 +497,14 @@
         const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(15);
         if (error) throw error;
         renderLogsList(data || []);
-      } catch (e) {
-        console.error('Fetch logs error:', e.message);
-      }
+      } catch (e) { console.error('Fetch logs error:', e.message); }
     }
 
     function renderPersonnelList(people) {
       if (!isAdminAuthenticated) return;
-      if (!people.length) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>';
-        return;
-      }
-      $('list').innerHTML = '';
+      const listEl = $('list');
+      if (!people.length) { listEl.innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>'; return; }
+      listEl.innerHTML = '';
       for (const p of people) {
         const li = document.createElement('li');
         li.className = 'py-2 flex justify-between items-center text-xs';
@@ -609,17 +518,15 @@
           fetchPersonnel();
         };
         li.appendChild(delBtn);
-        $('list').appendChild(li);
+        listEl.appendChild(li);
       }
     }
 
     function renderLogsList(logs) {
       if (!isAdminAuthenticated) return;
-      if (!logs.length) {
-        $('logs-list').innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
-        return;
-      }
-      $('logs-list').innerHTML = '';
+      const logsEl = $('logs-list');
+      if (!logs.length) { logsEl.innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>'; return; }
+      logsEl.innerHTML = '';
       for (const l of logs) {
         const div = document.createElement('div');
         div.className = 'p-2 rounded bg-[#0a0c10] border border-[#1f293d] flex justify-between items-center text-xs';
@@ -631,11 +538,11 @@
           </div>
           <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeColor}">${l.action_type}</span>
         `;
-        $('logs-list').appendChild(div);
+        logsEl.appendChild(div);
       }
     }
 
-    /* Admin Authentication Controls */
+    // Admin Controls
     $('btn-admin-toggle').onclick = () => {
       if (isAdminAuthenticated) {
         isAdminAuthenticated = false;
@@ -659,15 +566,12 @@
         $('attendance-panel').classList.add('hidden');
         $('admin-btn-text').textContent = "Exit Admin";
         $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
-        fetchPersonnel();
-        fetchLogs();
+        fetchPersonnel(); fetchLogs();
       } else {
         $('admin-error').classList.remove('hidden');
       }
     };
-    $('admin-password').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('btn-modal-login').click();
-    });
+    $('admin-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-modal-login').click(); });
     $('btn-admin-logout').onclick = () => {
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
@@ -677,14 +581,11 @@
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
-    /* Camera Initializer */
+    // Camera Stream Handling
     async function initCamera(facing = 'user') {
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-      if (facing === 'user') {
-        video.classList.add('mirror'); overlay.classList.add('mirror');
-      } else {
-        video.classList.remove('mirror'); overlay.classList.remove('mirror');
-      }
+      video.classList.toggle('mirror', facing === 'user');
+      overlay.classList.toggle('mirror', facing === 'user');
 
       const constraints = [
         { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
@@ -695,25 +596,17 @@
 
       let stream = null;
       for (const c of constraints) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(c);
-          if (stream) break;
-        } catch (e) {}
+        try { stream = await navigator.mediaDevices.getUserMedia(c); if (stream) break; } catch (e) {}
       }
-
       if (!stream) throw new Error("Camera permission denied.");
 
       mediaStream = stream;
       video.srcObject = mediaStream;
-      await new Promise(res => {
-        if (video.readyState >= 2) res();
-        else video.onloadedmetadata = res;
-      });
+      await new Promise(res => { if (video.readyState >= 2) res(); else video.onloadedmetadata = res; });
       await video.play();
 
       overlay.width = video.videoWidth || 640;
       overlay.height = video.videoHeight || 480;
-
       currentFacingMode = facing;
       isCameraActive = true;
       $('cam-btn-text').textContent = "Active";
@@ -725,76 +618,50 @@
         say('Initializing Camera…');
         await initCamera(currentFacingMode);
         say('Camera Active. Ready.', '');
-        $('btn-checkin').disabled = false;
-        $('btn-checkout').disabled = false;
-        $('btn-enroll').disabled = false;
-      } catch (err) {
-        say('Camera Error: ' + err.message, 'bad');
-      }
+        $('btn-checkin').disabled = false; $('btn-checkout').disabled = false; $('btn-enroll').disabled = false;
+      } catch (err) { say('Camera Error: ' + err.message, 'bad'); }
     };
 
     $('btn-flip').onclick = async () => {
-      try {
-        await initCamera(currentFacingMode === 'user' ? 'environment' : 'user');
-        say('Camera switched.');
-      } catch (e) {
-        say('Switch error: ' + e.message, 'bad');
-      }
+      try { await initCamera(currentFacingMode === 'user' ? 'environment' : 'user'); say('Camera switched.'); }
+      catch (e) { say('Switch error: ' + e.message, 'bad'); }
     };
 
-    $('btn-mesh-toggle').onclick = () => {
-      showMesh = !showMesh;
-    };
+    $('btn-mesh-toggle').onclick = () => { showMesh = !showMesh; };
 
-    /* Strict & High-Accuracy Biometric Face Signature Extraction */
+    // Biometric Engine (High Accuracy L2 Cosine Similarity)
     function extractHighAccuracySignature(videoEl) {
-      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
-        throw new Error("Camera stream not active or ready.");
-      }
+      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) throw new Error("Camera stream not active or ready.");
 
       const canvas = document.createElement('canvas');
       canvas.width = 200; canvas.height = 200;
       const c = canvas.getContext('2d');
       
-      // Precise center facial crop
-      const vw = videoEl.videoWidth;
-      const vh = videoEl.videoHeight;
-      const sz = Math.min(vw, vh) * 0.75; // tighter crop around facial zone
-      const sx = (vw - sz) / 2;
-      const sy = (vh - sz) / 2;
+      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+      const sz = Math.min(vw, vh) * 0.75;
+      const sx = (vw - sz) / 2, sy = (vh - sz) / 2;
 
       c.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 200, 200);
       const imgData = c.getImageData(0, 0, 200, 200).data;
       
-      // Strict luminance & contrast variance validation to reject low quality/blurry feeds
       let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
       for (let i = 0; i < imgData.length; i += 4) {
         const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
-        lumaSum += luma;
-        lumaSqSum += luma * luma;
+        lumaSum += luma; lumaSqSum += luma * luma;
       }
       const meanLuma = lumaSum / totalPixels;
       const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
       
-      if (variance < 28.0) {
-        throw new Error("Strict Check Failed: Image lacks facial contrast or sharpness. Center your face in the grid.");
-      }
+      if (variance < 28.0) throw new Error("Strict Check Failed: Image lacks facial contrast or sharpness. Center your face in the grid.");
 
-      // 5x5 Grid Zone Signature extraction for granular feature comparison
-      const gridSize = 5;
-      const zoneSize = 200 / gridSize;
-      const signature = [];
-
+      const gridSize = 5, zoneSize = 200 / gridSize, signature = [];
       for (let zr = 0; zr < gridSize; zr++) {
         for (let zc = 0; zc < gridSize; zc++) {
           let rSum = 0, gSum = 0, bSum = 0, count = 0;
           for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 1) {
             for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 1) {
               const idx = (Math.floor(y) * 200 + Math.floor(x)) * 4;
-              rSum += imgData[idx];
-              gSum += imgData[idx+1];
-              bSum += imgData[idx+2];
-              count++;
+              rSum += imgData[idx]; gSum += imgData[idx+1]; bSum += imgData[idx+2]; count++;
             }
           }
           signature.push(rSum / (count || 1), gSum / (count || 1), bSum / (count || 1));
@@ -803,179 +670,116 @@
       return signature;
     }
 
-    /* Robust L2-Normalized Cosine Similarity with String/JSON/Object Parsing */
     function parseSignature(sig) {
       if (!sig) return [];
       if (Array.isArray(sig)) return sig;
-      if (typeof sig === 'string') {
-        try { const parsed = JSON.parse(sig); if (Array.isArray(parsed)) return parsed; } catch(e) {}
-      }
-      if (typeof sig === 'object') {
-        return Object.values(sig);
-      }
+      if (typeof sig === 'string') { try { const p = JSON.parse(sig); if (Array.isArray(p)) return p; } catch(e) {} }
+      if (typeof sig === 'object') return Object.values(sig);
       return [];
     }
 
     function compareSignatures(sigA, sigB) {
-      const arrA = parseSignature(sigA);
-      const arrB = parseSignature(sigB);
-      
+      const arrA = parseSignature(sigA), arrB = parseSignature(sigB);
       if (arrA.length === 0 || arrB.length === 0 || arrA.length !== arrB.length) return 0;
       
-      const normA = l2Normalize(arrA);
-      const normB = l2Normalize(arrB);
-      
+      const normA = l2Normalize(arrA), normB = l2Normalize(arrB);
       let dotProduct = 0;
-      for (let i = 0; i < normA.length; i++) {
-        dotProduct += (normA[i] || 0) * (normB[i] || 0);
-      }
+      for (let i = 0; i < normA.length; i++) dotProduct += (normA[i] || 0) * (normB[i] || 0);
       return Math.max(0, Math.min(1, dotProduct));
     }
 
     function l2Normalize(arr) {
       let sumSq = 0;
-      for (let i = 0; i < arr.length; i++) {
-        const val = Number(arr[i]) || 0;
-        sumSq += val * val;
-      }
+      for (let i = 0; i < arr.length; i++) { const val = Number(arr[i]) || 0; sumSq += val * val; }
       const mag = Math.sqrt(sumSq) || 1;
       return arr.map(val => (Number(val) || 0) / mag);
     }
 
     function drawOverlay() {
       if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-        overlay.width = video.videoWidth || 640;
-        overlay.height = video.videoHeight || 480;
+        overlay.width = video.videoWidth || 640; overlay.height = video.videoHeight || 480;
       }
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-      const vw = overlay.width;
-      const vh = overlay.height;
-      const cx = vw / 2;
-      const cy = vh / 2;
-
+      const vw = overlay.width, vh = overlay.height, cx = vw / 2, cy = vh / 2;
       $('telemetry-dot').className = 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse';
       $('telemetry-text').textContent = isCameraActive ? 'BIOMETRIC SENSOR ACTIVE' : 'CAMERA STANDBY';
 
       if (!showMesh) return;
 
-      const rw = vw * 0.45;
-      const rh = vh * 0.45;
-      const rx = cx - rw / 2;
-      const ry = cy - rh / 2;
-
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(rx, ry, rw, rh);
+      const rw = vw * 0.45, rh = vh * 0.45, rx = cx - rw / 2, ry = cy - rh / 2;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)'; ctx.lineWidth = 2; ctx.strokeRect(rx, ry, rw, rh);
 
       ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
       for (let gx = -2; gx <= 2; gx++) {
         for (let gy = -2; gy <= 2; gy++) {
-          const px = cx + (gx * rw * 0.2);
-          const py = cy + (gy * rh * 0.2);
-          ctx.fillRect(px - 1, py - 1, 2, 2);
+          ctx.fillRect(cx + (gx * rw * 0.2) - 1, cy + (gy * rh * 0.2) - 1, 2, 2);
         }
       }
     }
 
     function loop() {
-      if (isCameraActive) {
-        drawOverlay();
-      }
+      if (isCameraActive) drawOverlay();
       requestAnimationFrame(loop);
     }
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Handler */
+    // Enrollment Handler
     $('btn-enroll').onclick = async () => {
-      if (!isAdminAuthenticated) return;
-      if (!supabaseClient) return alert('Supabase client not initialized.');
-
-      const name = $('enroll-name').value.trim();
-      const idNumber = $('enroll-id').value.trim();
-      const shift = $('enroll-shift').value;
-
+      if (!isAdminAuthenticated || !supabaseClient) return;
+      const name = $('enroll-name').value.trim(), idNumber = $('enroll-id').value.trim(), shift = $('enroll-shift').value;
       if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
       $('btn-enroll').disabled = true;
 
       try {
         say('Capturing high-accuracy biometric signature…');
         await sleep(600);
-
         const signature = extractHighAccuracySignature(video);
-
-        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
-          name,
-          id_number: idNumber,
-          shift,
-          signature
-        }]);
-
+        const { error } = await supabaseClient.from('enrolled_personnel').insert([{ name, id_number: idNumber, shift, signature }]);
         if (error) throw error;
 
-        $('enroll-name').value = '';
-        $('enroll-id').value = '';
+        $('enroll-name').value = ''; $('enroll-id').value = '';
         say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
         fetchPersonnel();
-      } catch (e) {
-        say('Enrollment Error: ' + e.message, 'bad');
-      } finally {
-        $('btn-enroll').disabled = false;
-      }
+      } catch (e) { say('Enrollment Error: ' + e.message, 'bad'); }
+      finally { $('btn-enroll').disabled = false; }
     };
 
-    /* Attendance Logging Helper */
+    // Attendance Verification Handler
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
-
       const shift = $('verify-shift').value;
 
       try {
         say(`Scanning face for ${actionType} (${shift})…`);
         await sleep(400);
-
         const currentSig = extractHighAccuracySignature(video);
 
-        const { data: personnel, error } = await supabaseClient
-          .from('enrolled_personnel')
-          .select('*');
-
+        const { data: personnel, error } = await supabaseClient.from('enrolled_personnel').select('*');
         if (error) throw error;
-        if (!personnel || personnel.length === 0) {
-          say('Access Denied: No personnel enrolled in cloud.', 'bad');
-          return;
-        }
+        if (!personnel || personnel.length === 0) { say('Access Denied: No personnel enrolled in cloud.', 'bad'); return; }
 
         const threshold = +$('thr').value;
         let bestMatch = { person: null, similarity: 0 };
 
         for (const p of personnel) {
           const similarity = compareSignatures(currentSig, p.signature);
-          if (similarity > bestMatch.similarity) {
-            bestMatch = { person: p, similarity };
-          }
+          if (similarity > bestMatch.similarity) bestMatch = { person: p, similarity };
         }
 
         if (bestMatch.similarity >= threshold) {
           const person = bestMatch.person;
           await supabaseClient.from('attendance_logs').insert([{
-            name: person.name,
-            id_number: person.id_number,
-            shift: shift,
-            action_type: actionType,
-            similarity_score: Math.round(bestMatch.similarity * 100),
-            timestamp: new Date().toISOString()
+            name: person.name, id_number: person.id_number, shift: shift,
+            action_type: actionType, similarity_score: Math.round(bestMatch.similarity * 100), timestamp: new Date().toISOString()
           }]);
-
           say(`${actionType} Successful: ${person.name} (${(bestMatch.similarity * 100).toFixed(1)}%)`, 'ok');
           fetchLogs();
         } else {
           say(`Access Denied: Unrecognized Face (${(bestMatch.similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
         }
-      } catch (e) {
-        say('Verification Error: ' + e.message, 'bad');
-      }
+      } catch (e) { say('Verification Error: ' + e.message, 'bad'); }
     }
 
     $('btn-checkin').onclick = () => handleAttendance('Check-In');
