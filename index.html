@@ -35,643 +35,299 @@
       -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     }
     .mirror { transform: scaleX(-1); }
-    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: #12161f; }
     ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.35s ease-out forwards; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between max-w-md mx-auto bg-[#0a0c10] border-x border-[#1f293d]/50 text-[#f1f5f9] relative pb-4">
+<body class="min-h-screen bg-[#0a0c10] text-[#f1f5f9] flex flex-col justify-between relative selection:bg-blue-600/30">
 
-  <!-- Header Section -->
-  <header class="px-4 py-3.5 flex items-center justify-between border-b border-[#1f293d] bg-[#12161f]/95 backdrop-blur-md sticky top-0 z-30 shadow-md">
-    <div class="flex items-center space-x-3">
-      <div class="w-9 h-9 rounded-lg bg-[#2563eb]/15 border border-[#2563eb]/40 flex items-center justify-center text-[#3b82f6]">
-        <i class="fa-solid fa-shield-halved text-lg"></i>
-      </div>
-      <div>
-        <h1 class="text-xs font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
-        <p class="text-[10px] text-[#64748b]" id="engine-tag">Cloud Synced Biometrics</p>
-      </div>
-    </div>
-    
-    <button id="btn-admin-toggle" class="px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
-      <i id="admin-icon" class="fa-solid fa-lock text-[11px] text-amber-400"></i>
-      <span id="admin-btn-text">Admin</span>
-    </button>
-  </header>
+  <!-- ======================================================== -->
+  <!-- INITIAL HOMESCREEN / TERMINAL LOCK SCREEN                -->
+  <!-- ======================================================== -->
+  <section id="terminal-lock-screen" class="fixed inset-0 z-50 bg-[#0a0c10] flex items-center justify-center p-4 sm:p-6">
+    <!-- Subtle Background Grid Glow -->
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.08)_0%,transparent_70%)] pointer-events-none"></div>
 
-  <!-- Main Viewport -->
-  <main class="flex-1 px-3.5 py-3 flex flex-col gap-3.5 overflow-y-auto">
-
-    <!-- Camera Stage Viewport -->
-    <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black rounded-xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
-      
-      <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
-      <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
-
-      <!-- Top-Left Telemetry Pills -->
-      <div class="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
-        <span id="telemetry-face" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-gray-300 flex items-center gap-1.5">
-          <span id="telemetry-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span id="telemetry-text">CAMERA STANDBY</span>
-        </span>
-        <span id="telemetry-mesh" class="px-2 py-0.5 rounded bg-black/65 backdrop-blur-md border border-white/15 text-[10px] font-mono text-sky-400">
-          BIOMETRIC READY
-        </span>
-      </div>
-
-      <!-- Camera Action Floating Controls -->
-      <div class="absolute top-3 right-3 z-20 flex gap-1.5">
-        <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 rounded-md bg-sky-600/80 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
-          <i class="fa-solid fa-draw-polygon text-xs"></i>
-        </button>
-        <button id="btn-start-cam" class="h-8 px-2.5 rounded-md bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
-          <i class="fa-solid fa-video text-[10px]"></i>
-          <span id="cam-btn-text">Start</span>
-        </button>
-        <button id="btn-flip" title="Switch Camera" class="w-8 h-8 rounded-md bg-black/65 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
-          <i class="fa-solid fa-camera-rotate text-xs"></i>
-        </button>
-      </div>
-
-      <!-- Formal Status HUD Banner -->
-      <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
-        Tap "Start" to activate camera terminal.
-      </div>
-    </div>
-
-    <!-- Attendance Logging Panel -->
-    <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 space-y-3 shadow-lg">
-      <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
-        <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
-          <i class="fa-solid fa-user-check text-[#3b82f6]"></i>
-          Attendance Verification
-        </span>
-        <span id="status-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-          Standby
-        </span>
-      </div>
-
-      <div class="space-y-2.5 pt-1">
-        <!-- Shift Dropdown Menu -->
+    <div class="w-full max-w-sm md:max-w-md bg-[#12161f] border border-[#1f293d] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in">
+      <!-- Brand Emblem & Live Clock -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-[#2563eb]/15 border border-[#2563eb]/40 text-[#3b82f6] flex items-center justify-center mx-auto text-2xl shadow-inner">
+          <i class="fa-solid fa-fingerprint"></i>
+        </div>
         <div>
-          <label class="text-[10px] text-gray-400 font-medium mb-1 block">Select Shift Schedule</label>
-          <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white font-medium focus:outline-none focus:border-[#2563eb]">
-            <option value="Day Shift">Day Shift</option>
-            <option value="Afternoon Shift">Afternoon Shift</option>
-          </select>
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-semibold tracking-widest uppercase text-blue-400 mb-1">
+            Terminal Gateway
+          </span>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Enterprise Biometric Auth</h1>
+          <p class="text-xs text-[#64748b] mt-0.5">Enter terminal access passcode to unlock station</p>
         </div>
-
-        <!-- Check-In / Check-Out Buttons -->
-        <div class="grid grid-cols-2 gap-2 pt-1">
-          <button id="btn-checkin" disabled 
-                  class="h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
-            <i class="fa-solid fa-right-to-bracket text-xs"></i>
-            <span>Check-In</span>
-          </button>
-          <button id="btn-checkout" disabled 
-                  class="h-11 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md">
-            <i class="fa-solid fa-right-from-bracket text-xs"></i>
-            <span>Check-Out</span>
-          </button>
-        </div>
+        <div id="lock-clock" class="pt-1 font-mono text-xs text-gray-400 tracking-wider"></div>
       </div>
 
-      <p class="text-[11px] text-[#64748b] text-center pt-1">
-        Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
-      </p>
-    </div>
-
-    <!-- ADMIN PROTECTED CONTAINER -->
-    <div id="admin-panel" class="hidden space-y-3.5">
-      <div class="bg-[#12161f] border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-lg">
-        <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
-          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-            <i class="fa-solid fa-user-gear"></i>
-            Admin Control Panel
-          </span>
-          <button id="btn-admin-logout" class="text-[11px] text-rose-400 hover:text-rose-300 font-medium">
-            Lock Portal
-          </button>
-        </div>
-
-        <!-- Enrollment Form: Name + ID + Shift Dropdown -->
-        <div class="space-y-2.5 pt-1">
-          <label class="text-[11px] text-gray-400 font-medium">New User Enrollment</label>
-          <div class="space-y-2">
-            <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40" 
-                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
-            <input type="text" id="enroll-id" placeholder="ID Number (e.g. EMP-1001)" maxlength="30" 
-                   class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
-            
-            <div>
-              <label class="text-[10px] text-gray-400 font-medium mb-1 block">Default Shift</label>
-              <select id="enroll-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-10 text-xs text-white focus:outline-none focus:border-blue-500">
-                <option value="Day Shift">Day Shift</option>
-                <option value="Afternoon Shift">Afternoon Shift</option>
-              </select>
-            </div>
-
-            <button id="btn-enroll" disabled 
-                    class="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md">
-              <i class="fa-solid fa-user-plus text-[10px]"></i>
-              <span>Enroll Face & Credentials</span>
+      <!-- Passcode Input Form -->
+      <form id="terminal-unlock-form" class="space-y-4">
+        <div class="space-y-1.5">
+          <label for="terminal-password" class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider text-center">
+            Station Passcode
+          </label>
+          <div class="relative">
+            <input type="password" id="terminal-password" inputmode="numeric" autocomplete="off" placeholder="••••••" required
+                   class="w-full bg-[#0a0c10] border border-[#1f293d] focus:border-[#2563eb] rounded-xl px-4 h-12 text-center text-lg text-white tracking-[0.35em] font-mono placeholder-gray-600 focus:outline-none transition-colors" />
+            <button type="button" id="btn-toggle-lock-vis" title="Show/Hide Passcode"
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs p-1">
+              <i id="lock-vis-icon" class="fa-solid fa-eye"></i>
             </button>
           </div>
+          <p id="terminal-lock-error" class="text-xs text-rose-500 text-center font-medium hidden pt-1">
+            <i class="fa-solid fa-circle-exclamation mr-1"></i> Incorrect terminal passcode.
+          </p>
         </div>
 
-        <!-- Sensitivity Slider -->
-        <div class="pt-2 border-t border-[#1f293d] space-y-3 text-xs">
-          <div class="space-y-1">
-            <div class="flex justify-between text-gray-300">
-              <span class="text-[11px] text-gray-400">Match Accuracy Threshold</span>
-              <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.78</span>
-            </div>
-            <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.78" 
-                   class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
-          </div>
-        </div>
-      </div>
+        <button type="submit" 
+                class="w-full h-12 bg-[#2563eb] hover:bg-blue-600 active:scale-[0.99] text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-unlock-keyhole text-xs"></i>
+          <span>Unlock Terminal</span>
+        </button>
+      </form>
 
-      <!-- Enrolled Personnel Directory -->
-      <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 shadow-lg space-y-2">
-        <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
-          <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-            <i class="fa-solid fa-users text-[#3b82f6]"></i>
-            Cloud Enrolled Personnel
-          </strong>
-          <button id="btn-refresh-list" class="text-[11px] text-blue-400 hover:text-blue-300">Refresh</button>
-        </div>
-        <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-36">
-          <li class="py-2.5 text-center text-xs text-[#64748b] italic">Loading cloud directory...</li>
-        </ul>
-      </div>
-
-      <!-- Attendance Activity Logs -->
-      <div class="bg-[#12161f] border border-[#1f293d] rounded-xl p-4 shadow-lg space-y-2">
-        <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
-          <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-            <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
-            Live Attendance Logs (Cloud)
-          </strong>
-        </div>
-        <div id="logs-list" class="space-y-1.5 overflow-y-auto max-h-36 text-xs text-gray-300">
-          <div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>
-        </div>
+      <!-- Responsive Device Indicator Footer -->
+      <div class="pt-2 border-t border-[#1f293d] flex items-center justify-between text-[10px] text-[#64748b]">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          Supabase Cloud Ready
+        </span>
+        <span id="device-mode-label" class="font-mono uppercase">Adaptive UI</span>
       </div>
     </div>
-  </main>
+  </section>
+
+  <!-- ======================================================== -->
+  <!-- MAIN APPLICATION SHELL (Hidden until unlocked)           -->
+  <!-- ======================================================== -->
+  <div id="app-shell" class="hidden min-h-screen flex flex-col justify-between w-full">
+
+    <!-- Responsive Header Section -->
+    <header class="w-full border-b border-[#1f293d] bg-[#12161f]/95 backdrop-blur-md sticky top-0 z-30 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#2563eb]/15 border border-[#2563eb]/40 flex items-center justify-center text-[#3b82f6]">
+            <i class="fa-solid fa-shield-halved text-lg sm:text-xl"></i>
+          </div>
+          <div>
+            <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Enterprise Auth</h1>
+            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Cloud Synced Biometrics</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Lock Terminal Button -->
+          <button id="btn-lock-terminal" title="Lock Homescreen"
+                  class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-400 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+            <i class="fa-solid fa-power-off text-[11px] text-rose-400"></i>
+            <span class="hidden sm:inline">Lock Screen</span>
+          </button>
+
+          <!-- Admin Toggle Button -->
+          <button id="btn-admin-toggle" class="px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+            <i id="admin-icon" class="fa-solid fa-lock text-[11px] text-amber-400"></i>
+            <span id="admin-btn-text">Admin</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Adaptive Main Viewport:
+         - Phone (< 768px): Single column stacked
+         - Tablet (768px - 1023px): Balanced two-column split (6/6)
+         - Desktop/PC (>= 1024px): Wide 12-column dashboard (7 cols camera / 5 cols controls) -->
+    <main class="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col justify-center">
+      
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
+
+        <!-- LEFT / TOP COLUMN: Camera Stage Viewport -->
+        <div class="md:col-span-6 lg:col-span-7 w-full">
+          <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] lg:aspect-[16/11] bg-black rounded-2xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
+            
+            <video id="webcam" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover mirror"></video>
+            <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
+
+            <!-- Top-Left Telemetry Pills -->
+            <div class="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-col gap-1.5 pointer-events-none">
+              <span id="telemetry-face" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-gray-300 flex items-center gap-1.5">
+                <span id="telemetry-dot" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400"></span>
+                <span id="telemetry-text">CAMERA STANDBY</span>
+              </span>
+              <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
+                BIOMETRIC READY
+              </span>
+            </div>
+
+            <!-- Camera Action Floating Controls -->
+            <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
+              <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+                <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
+              </button>
+              <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+                <i class="fa-solid fa-video text-[10px] sm:text-xs"></i>
+                <span id="cam-btn-text">Start</span>
+              </button>
+              <button id="btn-flip" title="Switch Camera" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+                <i class="fa-solid fa-camera-rotate text-xs sm:text-sm"></i>
+              </button>
+            </div>
+
+            <!-- Formal Status HUD Banner -->
+            <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
+              Tap "Start" to activate camera terminal.
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
+        <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
+
+          <!-- Attendance Logging Panel (No ID typing required to scan) -->
+          <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
+              <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-user-check text-[#3b82f6]"></i>
+                Attendance Verification
+              </span>
+              <span id="status-badge" class="px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                Standby
+              </span>
+            </div>
+
+            <div class="space-y-3.5 pt-1">
+              <!-- Shift Dropdown Menu -->
+              <div>
+                <label class="text-[11px] sm:text-xs text-gray-400 font-medium mb-1.5 block">Select Shift Schedule</label>
+                <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-11 text-xs sm:text-sm text-white font-medium focus:outline-none focus:border-[#2563eb]">
+                  <option value="Day Shift">Day Shift</option>
+                  <option value="Afternoon Shift">Afternoon Shift</option>
+                </select>
+              </div>
+
+              <!-- Check-In / Check-Out Buttons -->
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <button id="btn-checkin" disabled 
+                        class="h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
+                  <i class="fa-solid fa-right-to-bracket text-xs sm:text-sm"></i>
+                  <span>Check-In</span>
+                </button>
+                <button id="btn-checkout" disabled 
+                        class="h-12 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
+                  <i class="fa-solid fa-right-from-bracket text-xs sm:text-sm"></i>
+                  <span>Check-Out</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
+              Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+            </p>
+          </div>
+
+          <!-- ADMIN PROTECTED CONTAINER -->
+          <div id="admin-panel" class="hidden space-y-4">
+            <div class="bg-[#12161f] border border-amber-500/30 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl">
+              <div class="flex items-center justify-between pb-2.5 border-b border-[#1f293d]">
+                <span class="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-user-gear"></i>
+                  Admin Control Panel
+                </span>
+                <button id="btn-admin-logout" class="text-[11px] sm:text-xs text-rose-400 hover:text-rose-300 font-medium">
+                  Lock Portal
+                </button>
+              </div>
+
+              <!-- Enrollment Form: Name + ID + Shift Dropdown -->
+              <div class="space-y-2.5 pt-1">
+                <label class="text-[11px] sm:text-xs text-gray-400 font-medium block">New User Enrollment</label>
+                <div class="space-y-2.5">
+                  <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40" 
+                         class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-10 sm:h-11 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+                  <input type="text" id="enroll-id" placeholder="ID Number (e.g. EMP-1001)" maxlength="30" 
+                         class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-10 sm:h-11 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
+                  
+                  <div>
+                    <label class="text-[10px] sm:text-xs text-gray-400 font-medium mb-1 block">Default Shift</label>
+                    <select id="enroll-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-10 sm:h-11 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500">
+                      <option value="Day Shift">Day Shift</option>
+                      <option value="Afternoon Shift">Afternoon Shift</option>
+                    </select>
+                  </div>
+
+                  <button id="btn-enroll" disabled 
+                          class="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
+                    <i class="fa-solid fa-user-plus text-xs"></i>
+                    <span>Enroll Face & Credentials</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Sensitivity Slider -->
+              <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
+                <div class="flex justify-between text-gray-300">
+                  <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.60</span>
+                </div>
+                <input type="range" id="thr" min="0.5" max="0.9" step="0.01" value="0.60" 
+                       class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
+              </div>
+            </div>
+
+            <!-- Enrolled Personnel Directory -->
+            <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
+              <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
+                <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-users text-[#3b82f6]"></i>
+                  Cloud Enrolled Personnel
+                </strong>
+                <button id="btn-refresh-list" class="text-[11px] text-blue-400 hover:text-blue-300">Refresh</button>
+              </div>
+              <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-40 sm:max-h-48">
+                <li class="py-2.5 text-center text-xs text-[#64748b] italic">Loading cloud directory...</li>
+              </ul>
+            </div>
+
+            <!-- Attendance Activity Logs -->
+            <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
+              <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
+                <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
+                  Live Attendance Logs (Cloud)
+                </strong>
+              </div>
+              <div id="logs-list" class="space-y-1.5 overflow-y-auto max-h-40 sm:max-h-48 text-xs text-gray-300">
+                <div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
+      Enterprise Biometric Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
+    </footer>
+
+  </div>
 
   <!-- ADMIN AUTHENTICATION MODAL -->
   <div id="admin-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-[#12161f] border border-[#1f293d] w-full max-w-xs rounded-xl p-5 space-y-4 shadow-2xl">
-      <div class="text-center space-y-1">
-        <div class="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-base">
+    <div class="bg-[#12161f] border border-[#1f293d] w-full max-w-xs sm:max-w-sm rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl">
+      <div class="text-center space-y-1.5">
+        <div class="w-11 h-11 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-base">
           <i class="fa-solid fa-lock"></i>
         </div>
-        <h3 class="text-sm font-bold text-white">Administrator Access</h3>
-        <p class="text-[11px] text-[#64748b]">Enter security credentials to access management console.</p>
-      </div>
-
-      <div class="space-y-2">
-        <input type="password" id="admin-password" placeholder="Passcode" 
-               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-lg px-3 h-11 text-center text-sm text-white tracking-widest focus:outline-none focus:border-amber-500" />
-        <p id="admin-error" class="text-[11px] text-rose-500 text-center hidden">Invalid passcode.</p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-2">
-        <button id="btn-modal-cancel" class="h-10 bg-[#1f293d] hover:bg-gray-800 text-gray-300 font-medium text-xs rounded-lg">
-          Cancel
-        </button>
-        <button id="btn-modal-login" class="h-10 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs rounded-lg shadow-md">
-          Authenticate
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <footer class="px-4 text-center text-[10px] text-[#64748b] pt-1">
-    Enterprise Biometric Terminal • Supabase Cloud Synced
-  </footer>
-
-  <!-- Application Script with Supabase Connected -->
-  <script>
-    const $ = id => document.getElementById(id);
-    const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
-    const ctx = overlay.getContext('2d');
-
-    const ADMIN_PASSCODE = '123587';
-    let isAdminAuthenticated = false;
-    let currentFacingMode = 'user';
-    let mediaStream = null;
-    let isCameraActive = false;
-    let showMesh = true;
-
-    // ========================================================
-    // SUPABASE CONNECTION (Configured separately here)
-    // ========================================================
-    const SUPABASE_URL = 'https://ahitbnftioivzbvrenls.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_NhsYm3Tn9Um1XsyEh8ahyg_wJPO5DfP';
-    
-    let supabaseClient = null;
-    try {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (e) {
-      console.warn('Supabase initialization warning:', e);
-    }
-
-    const say = (msg, cls = '') => { 
-      banner.textContent = msg; 
-      banner.className = 'absolute bottom-0 inset-x-0 z-20 py-2 px-3 text-center text-xs font-semibold backdrop-blur-md transition-colors duration-300 ' + 
-        (cls === 'ok' ? 'bg-emerald-700/90 text-white' : cls === 'bad' ? 'bg-rose-700/90 text-white' : 'bg-black/80 text-gray-300 border-t border-white/10');
-      
-      const badge = $('status-badge');
-      if (cls === 'ok') {
-        badge.textContent = 'Success';
-        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      } else if (cls === 'bad') {
-        badge.textContent = 'Failed';
-        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
-      } else {
-        badge.textContent = isCameraActive ? 'Active' : 'Standby';
-        badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
-      }
-    };
-
-    /* Supabase Cloud Operations */
-    async function fetchPersonnel() {
-      if (!supabaseClient) return;
-      try {
-        const { data, error } = await supabaseClient.from('enrolled_personnel').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        renderPersonnelList(data || []);
-      } catch (e) {
-        console.error('Fetch personnel error:', e.message);
-      }
-    }
-
-    async function fetchLogs() {
-      if (!supabaseClient) return;
-      try {
-        const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(15);
-        if (error) throw error;
-        renderLogsList(data || []);
-      } catch (e) {
-        console.error('Fetch logs error:', e.message);
-      }
-    }
-
-    function renderPersonnelList(people) {
-      if (!isAdminAuthenticated) return;
-      if (!people.length) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>';
-        return;
-      }
-      $('list').innerHTML = '';
-      for (const p of people) {
-        const li = document.createElement('li');
-        li.className = 'py-2 flex justify-between items-center text-xs';
-        li.innerHTML = `<div><strong class="text-white">${p.name}</strong> <span class="text-blue-400 font-mono">(${p.id_number})</span><br/><span class="text-[10px] text-gray-400">${p.shift}</span></div>`;
-        const delBtn = document.createElement('button');
-        delBtn.className = 'px-2 py-0.5 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded text-[11px] font-semibold';
-        delBtn.textContent = 'Remove';
-        delBtn.onclick = async () => {
-          if (!confirm(`Delete ${p.name} from cloud database?`)) return;
-          await supabaseClient.from('enrolled_personnel').delete().eq('id', p.id);
-          fetchPersonnel();
-        };
-        li.appendChild(delBtn);
-        $('list').appendChild(li);
-      }
-    }
-
-    function renderLogsList(logs) {
-      if (!isAdminAuthenticated) return;
-      if (!logs.length) {
-        $('logs-list').innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
-        return;
-      }
-      $('logs-list').innerHTML = '';
-      for (const l of logs) {
-        const div = document.createElement('div');
-        div.className = 'p-2 rounded bg-[#0a0c10] border border-[#1f293d] flex justify-between items-center text-xs';
-        const badgeColor = l.action_type === 'Check-In' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-blue-500/15 text-blue-400';
-        div.innerHTML = `
-          <div>
-            <span class="font-bold text-white">${l.name}</span> <span class="text-[10px] text-gray-400">(${l.id_number})</span><br/>
-            <span class="text-[10px] text-sky-400">${l.shift}</span> • <span class="text-[10px] text-gray-400">${new Date(l.timestamp).toLocaleTimeString()}</span>
-          </div>
-          <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeColor}">${l.action_type}</span>
-        `;
-        $('logs-list').appendChild(div);
-      }
-    }
-
-    /* Admin Authentication Controls */
-    $('btn-admin-toggle').onclick = () => {
-      if (isAdminAuthenticated) {
-        isAdminAuthenticated = false;
-        $('admin-panel').classList.add('hidden');
-        $('attendance-panel').classList.remove('hidden');
-        $('admin-btn-text').textContent = "Admin";
-        $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
-      } else {
-        $('admin-password').value = '';
-        $('admin-error').classList.add('hidden');
-        $('admin-modal').classList.remove('hidden');
-        $('admin-password').focus();
-      }
-    };
-    $('btn-modal-cancel').onclick = () => $('admin-modal').classList.add('hidden');
-    $('btn-modal-login').onclick = () => {
-      if ($('admin-password').value === ADMIN_PASSCODE) {
-        isAdminAuthenticated = true;
-        $('admin-modal').classList.add('hidden');
-        $('admin-panel').classList.remove('hidden');
-        $('attendance-panel').classList.add('hidden');
-        $('admin-btn-text').textContent = "Exit Admin";
-        $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
-        fetchPersonnel();
-        fetchLogs();
-      } else {
-        $('admin-error').classList.add('hidden');
-      }
-    };
-    $('btn-admin-logout').onclick = () => {
-      isAdminAuthenticated = false;
-      $('admin-panel').classList.add('hidden');
-      $('attendance-panel').classList.remove('hidden');
-      $('admin-btn-text').textContent = "Admin";
-      $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
-    };
-    $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
-
-    /* Camera Initializer */
-    async function initCamera(facing = 'user') {
-      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-      if (facing === 'user') {
-        video.classList.add('mirror'); overlay.classList.add('mirror');
-      } else {
-        video.classList.remove('mirror'); overlay.classList.remove('mirror');
-      }
-
-      const constraints = [
-        { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-        { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
-        { video: { facingMode: facing }, audio: false },
-        { video: true, audio: false }
-      ];
-
-      let stream = null;
-      for (const c of constraints) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(c);
-          if (stream) break;
-        } catch (e) {}
-      }
-
-      if (!stream) throw new Error("Camera permission denied.");
-
-      mediaStream = stream;
-      video.srcObject = mediaStream;
-      await new Promise(res => {
-        if (video.readyState >= 2) res();
-        else video.onloadedmetadata = res;
-      });
-      await video.play();
-
-      overlay.width = video.videoWidth || 640;
-      overlay.height = video.videoHeight || 480;
-
-      currentFacingMode = facing;
-      isCameraActive = true;
-      $('cam-btn-text').textContent = "Active";
-      $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
-    }
-
-    $('btn-start-cam').onclick = async () => {
-      try {
-        say('Initializing Camera…');
-        await initCamera(currentFacingMode);
-        say('Camera Active. Ready.', '');
-        $('btn-checkin').disabled = false;
-        $('btn-checkout').disabled = false;
-        $('btn-enroll').disabled = false;
-      } catch (err) {
-        say('Camera Error: ' + err.message, 'bad');
-      }
-    };
-
-    $('btn-flip').onclick = async () => {
-      try {
-        await initCamera(currentFacingMode === 'user' ? 'environment' : 'user');
-        say('Camera switched.');
-      } catch (e) {
-        say('Switch error: ' + e.message, 'bad');
-      }
-    };
-
-    $('btn-mesh-toggle').onclick = () => {
-      showMesh = !showMesh;
-    };
-
-    /* Strict High Accuracy Face Signature Extraction with Variance Check */
-    function extractHighAccuracySignature(videoEl) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 160; canvas.height = 160;
-      const c = canvas.getContext('2d');
-      c.drawImage(videoEl, 20, 20, 120, 120, 0, 0, 160, 160);
-      const imgData = c.getImageData(0, 0, 160, 160).data;
-      
-      // Calculate luminance variance to ensure a real subject/face is present (prevents blank/dark wall false positives)
-      let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
-      for (let i = 0; i < imgData.length; i += 4) {
-        const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
-        lumaSum += luma;
-        lumaSqSum += luma * luma;
-      }
-      const meanLuma = lumaSum / totalPixels;
-      const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
-      
-      // If variance is too low (e.g. blank wall, dark room, or covered camera), throw error
-      if (variance < 45.0) {
-        throw new Error("No distinct face detected. Please face the camera properly.");
-      }
-
-      const zoneSize = 160 / 4;
-      const signature = [];
-
-      for (let zr = 0; zr < 4; zr++) {
-        for (let zc = 0; zc < 4; zc++) {
-          let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 4) {
-            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 4) {
-              const idx = (Math.floor(y) * 160 + Math.floor(x)) * 4;
-              rSum += imgData[idx];
-              gSum += imgData[idx+1];
-              bSum += imgData[idx+2];
-              count++;
-            }
-          }
-          signature.push(rSum / count, gSum / count, bSum / count);
-        }
-      }
-      return signature;
-    }
-
-    function compareSignatures(sigA, sigB) {
-      if (!sigA || !sigB || sigA.length !== sigB.length) return 0;
-      let diff = 0;
-      for (let i = 0; i < sigA.length; i++) {
-        diff += Math.abs(sigA[i] - sigB[i]);
-      }
-      const maxDiff = sigA.length * 255;
-      const similarity = Math.max(0, 1 - (diff / maxDiff));
-      return similarity;
-    }
-
-    function drawOverlay() {
-      if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-        overlay.width = video.videoWidth || 640;
-        overlay.height = video.videoHeight || 480;
-      }
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-      const vw = overlay.width;
-      const vh = overlay.height;
-      const cx = vw / 2;
-      const cy = vh / 2;
-
-      $('telemetry-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
-      $('telemetry-text').textContent = isCameraActive ? 'BIOMETRIC SENSOR ACTIVE' : 'CAMERA STANDBY';
-
-      if (!showMesh) return;
-
-      const rw = vw * 0.45;
-      const rh = vh * 0.45;
-      const rx = cx - rw / 2;
-      const ry = cy - rh / 2;
-
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(rx, ry, rw, rh);
-
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
-      for (let gx = -2; gx <= 2; gx++) {
-        for (let gy = -2; gy <= 2; gy++) {
-          const px = cx + (gx * rw * 0.2);
-          const py = cy + (gy * rh * 0.2);
-          ctx.fillRect(px - 1, py - 1, 2, 2);
-        }
-      }
-    }
-
-    function loop() {
-      if (isCameraActive) {
-        drawOverlay();
-      }
-      requestAnimationFrame(loop);
-    }
-
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-    /* Enrollment Handler */
-    $('btn-enroll').onclick = async () => {
-      if (!isAdminAuthenticated) return;
-      if (!supabaseClient) return alert('Supabase client not initialized.');
-
-      const name = $('enroll-name').value.trim();
-      const idNumber = $('enroll-id').value.trim();
-      const shift = $('enroll-shift').value;
-
-      if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
-      $('btn-enroll').disabled = true;
-
-      try {
-        say('Capturing high-accuracy biometric signature…');
-        await sleep(600);
-
-        const signature = extractHighAccuracySignature(video);
-
-        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
-          name,
-          id_number: idNumber,
-          shift,
-          signature
-        }]);
-
-        if (error) throw error;
-
-        $('enroll-name').value = '';
-        $('enroll-id').value = '';
-        say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
-        fetchPersonnel();
-      } catch (e) {
-        say('Enrollment Error: ' + e.message, 'bad');
-      } finally {
-        $('btn-enroll').disabled = false;
-      }
-    };
-
-    /* Attendance Logging Helper with Strict Verification */
-    async function handleAttendance(actionType) {
-      if (!supabaseClient) return alert('Supabase client not initialized.');
-
-      const shift = $('verify-shift').value;
-
-      try {
-        say(`Scanning face for ${actionType} (${shift})…`);
-        await sleep(400);
-
-        const currentSig = extractHighAccuracySignature(video);
-
-        const { data: personnel, error } = await supabaseClient
-          .from('enrolled_personnel')
-          .select('*');
-
-        if (error) throw error;
-        if (!personnel || personnel.length === 0) {
-          say('Access Denied: No personnel enrolled in cloud.', 'bad');
-          return;
-        }
-
-        const threshold = Math.max(0.78, +$('thr').value);
-        let bestMatch = { person: null, similarity: 0 };
-
-        for (const p of personnel) {
-          const similarity = compareSignatures(currentSig, p.signature);
-          if (similarity > bestMatch.similarity) {
-            bestMatch = { person: p, similarity };
-          }
-        }
-
-        if (bestMatch.similarity >= threshold) {
-          const person = bestMatch.person;
-          await supabaseClient.from('attendance_logs').insert([{
-            name: person.name,
-            id_number: person.id_number,
-            shift: shift,
-            action_type: actionType,
-            similarity_score: Math.round(bestMatch.similarity * 100),
-            timestamp: new Date().toISOString()
-          }]);
-
-          say(`${actionType} Successful: ${person.name} (${(bestMatch.similarity * 100).toFixed(1)}%)`, 'ok');
-          fetchLogs();
-        } else {
-          say(`Access Denied: Unrecognized Face (${(bestMatch.similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
-        }
-      } catch (e) {
-        say('Verification Error: ' + e.message, 'bad');
-      }
-    }
-
-    $('btn-checkin').onclick = () => handleAttendance('Check-In');
-    $('btn-checkout').onclick = () => handleAttendance('Check-Out');
-    $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
-
-    say('Ready. Connect Supabase & Start Camera.');
-    loop();
-  </script>
-</body>
-</html>
+        <h3 class="text-sm sm:text-base font-bold text-white">Administrator Access</h3>
+        <p class="text-[11px] sm:te
