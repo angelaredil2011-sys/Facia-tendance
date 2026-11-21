@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Face-API (Facial Landmark & 128D Feature Descriptor Engine) -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -128,7 +130,7 @@
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
-            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Cloud Synced Biometrics</p>
+            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">68-Point Facial Feature Biometrics</p>
           </div>
         </div>
         
@@ -156,10 +158,7 @@
       </div>
     </header>
 
-    <!-- Adaptive Main Viewport:
-         - Phone (< 768px): Single column stacked
-         - Tablet (768px - 1023px): Balanced two-column split (6/6)
-         - Desktop/PC (>= 1024px): Wide 12-column dashboard (7 cols camera / 5 cols controls) -->
+    <!-- Adaptive Main Viewport -->
     <main class="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col justify-center">
       
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
@@ -178,13 +177,13 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                BIOMETRIC READY
+                FACIAL LANDMARKS READY
               </span>
             </div>
 
             <!-- Camera Action Floating Controls -->
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+              <button id="btn-mesh-toggle" title="Toggle Landmarks & Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
                 <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
               </button>
               <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -203,7 +202,7 @@
         <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
-          <!-- Attendance Logging Panel (No ID typing required to scan) -->
+          <!-- Attendance Logging Panel -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -241,7 +240,7 @@
             </div>
 
             <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
-              Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+              Select your shift, align your face inside the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
             </p>
           </div>
 
@@ -328,7 +327,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
+      Facia-tendance Terminal • Supabase Cloud Synced • Facial Feature Biometrics
     </footer>
 
   </div>
@@ -377,6 +376,8 @@
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
+    let modelsLoaded = false;
+    let latestDetection = null;
 
     // ========================================================
     // SUPABASE CONNECTION
@@ -512,12 +513,12 @@
     // Re-Lock Terminal Handler
     $('btn-lock-terminal').onclick = () => {
       isTerminalUnlocked = false;
-      // Stop camera stream when locking homescreen for privacy & battery
       if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
       }
       isCameraActive = false;
+      latestDetection = null;
       $('cam-btn-text').textContent = 'Start';
       $('btn-start-cam').classList.replace('bg-emerald-600', 'bg-[#2563eb]');
       $('btn-checkin').disabled = true;
@@ -525,7 +526,6 @@
       $('btn-enroll').disabled = true;
       say('Tap "Start" to activate camera terminal.');
 
-      // Also lock admin panel if open
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
       $('attendance-panel').classList.remove('hidden');
@@ -537,7 +537,6 @@
       $('terminal-password').focus();
     };
 
-    // Focus password input on load
     window.addEventListener('DOMContentLoaded', () => {
       $('terminal-password').focus();
     });
@@ -674,6 +673,24 @@
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
+    /* Load Facial Landmark & Recognition Models */
+    async function loadFacialModels() {
+      if (modelsLoaded || !window.faceapi) return;
+      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        modelsLoaded = true;
+        $('telemetry-mesh').textContent = '68-POINT FACE ENGINE READY';
+      } catch (e) {
+        console.warn('Face models fallback active:', e);
+        $('telemetry-mesh').textContent = 'LANDMARK FALLBACK ACTIVE';
+      }
+    }
+
     /* Camera Initializer (Front Camera Only) */
     async function initCamera() {
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
@@ -710,13 +727,15 @@
       isCameraActive = true;
       $('cam-btn-text').textContent = "Active";
       $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
+
+      loadFacialModels();
     }
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Initializing Camera…');
+        say('Initializing Front Camera & Facial Engine…');
         await initCamera();
-        say('Camera Active. Ready.', '');
+        say('Camera Active. Align your face for verification.', '');
         $('btn-checkin').disabled = false;
         $('btn-checkout').disabled = false;
         $('btn-enroll').disabled = false;
@@ -729,156 +748,129 @@
       showMesh = !showMesh;
     };
 
-    /* Lighting-Invariant Structural + Luma Biometric Signature Extraction */
-    function captureSingleFrameFeatures(videoEl, canvas, ctx2d) {
-      const vw = videoEl.videoWidth;
-      const vh = videoEl.videoHeight;
-      const sz = Math.min(vw, vh) * 0.62;
-      const sx = (vw - sz) / 2;
-      const sy = (vh - sz) / 2;
-
-      ctx2d.clearRect(0, 0, 96, 96);
-      ctx2d.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 96, 96);
-      const data = ctx2d.getImageData(0, 0, 96, 96).data;
-
-      const lumaGrid = new Float32Array(96 * 96);
-      let lumaSum = 0, lumaSqSum = 0;
-      const n = 96 * 96;
-
-      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-        const yVal = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        lumaGrid[p] = yVal;
-        lumaSum += yVal;
-        lumaSqSum += yVal * yVal;
-      }
-
-      const meanLuma = lumaSum / n;
-      const variance = Math.max(0, (lumaSqSum / n) - (meanLuma * meanLuma));
-      const stdDev = Math.sqrt(variance);
-
-      if (meanLuma < 28 || stdDev < 6.5) {
-        throw new Error("Low contrast or dim lighting. Center your face clearly inside the mesh frame.");
-      }
-
-      // 1. 8x8 zero-mean brightness-normalized luma grid (64 features)
-      const grid = 8;
-      const cell = 96 / grid;
-      const features = [];
-
-      for (let gy = 0; gy < grid; gy++) {
-        for (let gx = 0; gx < grid; gx++) {
-          let sum = 0, cnt = 0;
-          const yStart = Math.floor(gy * cell), yEnd = Math.floor((gy + 1) * cell);
-          const xStart = Math.floor(gx * cell), xEnd = Math.floor((gx + 1) * cell);
-          for (let y = yStart; y < yEnd; y++) {
-            const rowOff = y * 96;
-            for (let x = xStart; x < xEnd; x++) {
-              sum += lumaGrid[rowOff + x];
-              cnt++;
-            }
-          }
-          features.push(((sum / (cnt || 1)) - meanLuma) / stdDev);
-        }
-      }
-
-      // 2. 6x6 local gradient magnitude features (36 features) for facial contour precision
-      const eGrid = 6;
-      const eCell = 96 / eGrid;
-      for (let ey = 0; ey < eGrid; ey++) {
-        for (let ex = 0; ex < eGrid; ex++) {
-          let gradSum = 0, cnt = 0;
-          const yStart = Math.max(1, Math.floor(ey * eCell));
-          const yEnd = Math.min(95, Math.floor((ey + 1) * eCell));
-          const xStart = Math.max(1, Math.floor(ex * eCell));
-          const xEnd = Math.min(95, Math.floor((ex + 1) * eCell));
-          for (let y = yStart; y < yEnd; y++) {
-            const row = y * 96;
-            for (let x = xStart; x < xEnd; x++) {
-              const dx = lumaGrid[row + x + 1] - lumaGrid[row + x - 1];
-              const dy = lumaGrid[row + 96 + x] - lumaGrid[row - 96 + x];
-              gradSum += Math.hypot(dx, dy);
-              cnt++;
-            }
-          }
-          features.push((gradSum / (cnt || 1)) / (stdDev || 1));
-        }
-      }
-
-      return features;
-    }
-
-    async function extractHighAccuracySignature(videoEl) {
+    /* Real-Time Facial Feature Detection & 128D Descriptor Extraction */
+    async function detectFaceWithFeatures(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
       }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = 96;
-      canvas.height = 96;
-      const ctx2d = canvas.getContext('2d', { willReadFrequently: true });
-
-      // 3-frame rapid burst averaging to filter sensor noise & micro-jitter
-      const samples = [];
-      for (let i = 0; i < 3; i++) {
-        samples.push(captureSingleFrameFeatures(videoEl, canvas, ctx2d));
-        if (i < 2) await sleep(55);
+      if (!modelsLoaded) {
+        await loadFacialModels();
       }
 
-      const dim = samples[0].length;
-      const averaged = new Array(dim).fill(0);
-      for (let s = 0; s < samples.length; s++) {
-        for (let d = 0; d < dim; d++) {
-          averaged[d] += samples[s][d];
+      if (modelsLoaded && window.faceapi) {
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+        const result = await faceapi
+          .detectSingleFace(videoEl, options)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (!result || !result.descriptor) {
+          throw new Error("No clear face detected. Look directly at the front camera.");
+        }
+
+        return {
+          descriptor: Array.from(result.descriptor),
+          box: result.detection.box,
+          landmarks: result.landmarks,
+          type: 'faceapi-128d'
+        };
+      }
+
+      // Fallback geometric facial feature extractor if offline
+      const canvas = document.createElement('canvas');
+      canvas.width = 96; canvas.height = 96;
+      const c2d = canvas.getContext('2d', { willReadFrequently: true });
+      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+      const sz = Math.min(vw, vh) * 0.62;
+      const sx = (vw - sz) / 2, sy = (vh - sz) / 2;
+      c2d.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 96, 96);
+      const data = c2d.getImageData(0, 0, 96, 96).data;
+
+      const luma = new Float32Array(96 * 96);
+      let sum = 0, sqSum = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        luma[p] = y; sum += y; sqSum += y * y;
+      }
+      const mean = sum / (96 * 96);
+      const std = Math.sqrt(Math.max(0.01, (sqSum / (96 * 96)) - mean * mean));
+      if (mean < 28 || std < 6.5) {
+        throw new Error("Low lighting or contrast. Improve lighting and face the camera.");
+      }
+
+      const vec = [];
+      for (let gy = 0; gy < 8; gy++) {
+        for (let gx = 0; gx < 8; gx++) {
+          let bSum = 0, cnt = 0;
+          for (let y = gy * 12; y < (gy + 1) * 12; y++) {
+            for (let x = gx * 12; x < (gx + 1) * 12; x++) {
+              bSum += luma[y * 96 + x]; cnt++;
+            }
+          }
+          vec.push(((bSum / cnt) - mean) / std);
         }
       }
-      for (let d = 0; d < dim; d++) {
-        averaged[d] /= samples.length;
-      }
-
-      return l2Normalize(averaged);
+      return { descriptor: vec, box: null, landmarks: null, type: 'fallback-luma' };
     }
 
-    /* Robust L2-Normalized Cosine Similarity with String/JSON/Object Parsing */
-    function parseSignature(sig) {
-      if (!sig) return [];
-      if (Array.isArray(sig)) return sig;
-      if (typeof sig === 'string') {
-        try { const parsed = JSON.parse(sig); if (Array.isArray(parsed)) return parsed; } catch(e) {}
+    function parseDescriptor(raw) {
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw.map(Number);
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed.map(Number);
+          if (parsed && Array.isArray(parsed.descriptor)) return parsed.descriptor.map(Number);
+        } catch (e) {}
       }
-      if (typeof sig === 'object') {
-        return Object.values(sig);
+      if (typeof raw === 'object') {
+        if (Array.isArray(raw.descriptor)) return raw.descriptor.map(Number);
+        return Object.values(raw).map(Number);
       }
       return [];
     }
 
-    function compareSignatures(sigA, sigB) {
-      const arrA = parseSignature(sigA);
-      const arrB = parseSignature(sigB);
-      
-      if (arrA.length === 0 || arrB.length === 0 || arrA.length !== arrB.length) return 0;
-      
-      const normA = l2Normalize(arrA);
-      const normB = l2Normalize(arrB);
-      
-      let dotProduct = 0;
-      for (let i = 0; i < normA.length; i++) {
-        dotProduct += (normA[i] || 0) * (normB[i] || 0);
+    /* Compare Facial Feature Descriptors (Returns 0.0 to 1.0 similarity) */
+    function compareFacialFeatures(descA, descB) {
+      const a = parseDescriptor(descA);
+      const b = parseDescriptor(descB);
+      if (!a.length || !b.length || a.length !== b.length) return 0;
+
+      if (a.length === 128 && window.faceapi) {
+        const dist = faceapi.euclideanDistance(a, b);
+        return Math.max(0, Math.min(1, 1 - (dist / 0.95)));
       }
-      return Math.max(0, Math.min(1, dotProduct));
+
+      let dot = 0, magA = 0, magB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        magA += a[i] * a[i];
+        magB += b[i] * b[i];
+      }
+      const denom = Math.sqrt(magA) * Math.sqrt(magB) || 1;
+      return Math.max(0, Math.min(1, dot / denom));
     }
 
-    function l2Normalize(arr) {
-      let sumSq = 0;
-      for (let i = 0; i < arr.length; i++) {
-        const val = Number(arr[i]) || 0;
-        sumSq += val * val;
-      }
-      const mag = Math.sqrt(sumSq) || 1;
-      return arr.map(val => (Number(val) || 0) / mag);
-    }
-
-    /* Advanced Interactive Biometric Face Mesh Overlay */
+    /* Live Facial Landmark & Biometric Mesh Renderer */
     let meshPhase = 0;
+    let lastLiveTrackTime = 0;
+
+    async function updateLiveFaceTracking() {
+      if (!isCameraActive || !modelsLoaded || !window.faceapi) return;
+      const now = performance.now();
+      if (now - lastLiveTrackTime < 140) return;
+      lastLiveTrackTime = now;
+
+      try {
+        const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
+        const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks();
+        latestDetection = det || null;
+      } catch (e) {
+        latestDetection = null;
+      }
+    }
+
     function drawOverlay() {
       if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
         overlay.width = video.videoWidth || 640;
@@ -891,76 +883,60 @@
       const cx = vw / 2;
       const cy = vh / 2;
 
-      $('telemetry-dot').className = 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse';
-      $('telemetry-text').textContent = isCameraActive ? 'BIOMETRIC SENSOR ACTIVE' : 'CAMERA STANDBY';
+      $('telemetry-dot').className = latestDetection
+        ? 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse'
+        : 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400';
+
+      $('telemetry-text').textContent = !isCameraActive
+        ? 'CAMERA STANDBY'
+        : latestDetection
+          ? 'FACE LOCKED • FEATURES READY'
+          : 'SCANNING FOR FACE…';
 
       if (!showMesh) return;
 
       meshPhase += 0.05;
-      const pulse = Math.sin(meshPhase) * 3;
 
+      if (latestDetection && latestDetection.detection && latestDetection.landmarks) {
+        const { x, y, width, height } = latestDetection.detection.box;
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.9)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(x, y, width, height);
+
+        const pts = latestDetection.landmarks.positions;
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
+        for (let i = 0; i < pts.length; i++) {
+          ctx.beginPath();
+          ctx.arc(pts[i].x, pts[i].y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        return;
+      }
+
+      const pulse = Math.sin(meshPhase) * 3;
       const rw = (vw * 0.45) + pulse;
       const rh = (vh * 0.48) + pulse;
       const rx = cx - rw / 2;
       const ry = cy - rh / 2;
 
-      // Outer targeting frame
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(rx, ry, rw, rh);
       ctx.setLineDash([]);
 
-      // Corner accent brackets
       const bl = 16;
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 3;
-      // Top-left
       ctx.beginPath(); ctx.moveTo(rx, ry + bl); ctx.lineTo(rx, ry); ctx.lineTo(rx + bl, ry); ctx.stroke();
-      // Top-right
       ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + bl); ctx.stroke();
-      // Bottom-left
       ctx.beginPath(); ctx.moveTo(rx, ry + rh - bl); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + bl, ry + rh); ctx.stroke();
-      // Bottom-right
       ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - bl); ctx.stroke();
-
-      // Dynamic Face Mesh Nodes (5x5 Grid with connecting wireframe lines)
-      const cols = 5, rows = 5;
-      const stepX = rw / (cols - 1);
-      const stepY = rh / (rows - 1);
-      const nodes = [];
-
-      for (let r = 0; r < rows; r++) {
-        const rowNodes = [];
-        for (let col = 0; col < cols; col++) {
-          const nx = rx + (col * stepX) + Math.sin(meshPhase + r) * 1.5;
-          const ny = ry + (r * stepY) + Math.cos(meshPhase + col) * 1.5;
-          rowNodes.push({x: nx, y: ny});
-          
-          // Draw node dot
-          ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
-          ctx.fillRect(nx - 1.5, ny - 1.5, 3, 3);
-        }
-        nodes.push(rowNodes);
-      }
-
-      // Draw wireframe mesh connections
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-      ctx.lineWidth = 1;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (c < cols - 1) {
-            ctx.beginPath(); ctx.moveTo(nodes[r][c].x, nodes[r][c].y); ctx.lineTo(nodes[r][c+1].x, nodes[r][c+1].y); ctx.stroke();
-          }
-          if (r < rows - 1) {
-            ctx.beginPath(); ctx.moveTo(nodes[r][c].x, nodes[r][c].y); ctx.lineTo(nodes[r+1][c].x, nodes[r+1][c].y); ctx.stroke();
-          }
-        }
-      }
     }
 
     function loop() {
       if (isCameraActive) {
+        updateLiveFaceTracking();
         drawOverlay();
       }
       requestAnimationFrame(loop);
@@ -968,7 +944,7 @@
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Handler */
+    /* Enrollment Handler (Stores Facial Feature Descriptor) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -981,10 +957,11 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Capturing high-accuracy biometric signature…');
-        await sleep(600);
+        say('Analyzing facial landmarks & features…');
+        await sleep(300);
 
-        const signature = await extractHighAccuracySignature(video);
+        const detection = await detectFaceWithFeatures(video);
+        const signature = detection.descriptor;
 
         const { error } = await supabaseClient.from('enrolled_personnel').insert([{
           name,
@@ -1006,17 +983,18 @@
       }
     };
 
-    /* Attendance Logging Helper */
+    /* Attendance Logging Helper (Matches by Facial Features) */
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
 
       const shift = $('verify-shift').value;
+      $('btn-checkin').disabled = true;
+      $('btn-checkout').disabled = true;
 
       try {
-        say(`Scanning face for ${actionType} (${shift})…`);
-        await sleep(400);
-
-        const currentSig = await extractHighAccuracySignature(video);
+        say(`Scanning facial features for ${actionType} (${shift})…`);
+        const liveDetection = await detectFaceWithFeatures(video);
+        const currentDesc = liveDetection.descriptor;
 
         const { data: personnel, error } = await supabaseClient
           .from('enrolled_personnel')
@@ -1032,7 +1010,7 @@
         let bestMatch = { person: null, similarity: 0 };
 
         for (const p of personnel) {
-          const similarity = compareSignatures(currentSig, p.signature);
+          const similarity = compareFacialFeatures(currentDesc, p.signature);
           if (similarity > bestMatch.similarity) {
             bestMatch = { person: p, similarity };
           }
@@ -1052,10 +1030,15 @@
           say(`${actionType} Successful: ${person.name} (${(bestMatch.similarity * 100).toFixed(1)}%)`, 'ok');
           fetchLogs();
         } else {
-          say(`Access Denied: Unrecognized Face (${(bestMatch.similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
+          say(`Access Denied: Face Not Recognized (${(bestMatch.similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
         }
       } catch (e) {
         say('Verification Error: ' + e.message, 'bad');
+      } finally {
+        if (isCameraActive) {
+          $('btn-checkin').disabled = false;
+          $('btn-checkout').disabled = false;
+        }
       }
     }
 
@@ -1063,7 +1046,7 @@
     $('btn-checkout').onclick = () => handleAttendance('Check-Out');
     $('thr').oninput = e => $('thrv').textContent = (+e.target.value).toFixed(2);
 
-    say('Ready. Connect Supabase & Start Camera.');
+    say('Ready. Start Front Camera to Begin.');
     loop();
   </script>
 </body>
