@@ -156,7 +156,10 @@
       </div>
     </header>
 
-    <!-- Adaptive Main Viewport -->
+    <!-- Adaptive Main Viewport:
+         - Phone (< 768px): Single column stacked
+         - Tablet (768px - 1023px): Balanced two-column split (6/6)
+         - Desktop/PC (>= 1024px): Wide 12-column dashboard (7 cols camera / 5 cols controls) -->
     <main class="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col justify-center">
       
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
@@ -175,13 +178,13 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                BIOMETRIC MESH ACTIVE
+                BIOMETRIC READY
               </span>
             </div>
 
             <!-- Camera Action Floating Controls -->
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" title="Toggle Mesh Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+              <button id="btn-mesh-toggle" title="Toggle Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
                 <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
               </button>
               <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -200,7 +203,7 @@
         <!-- RIGHT / BOTTOM COLUMN: Attendance Panel & Admin Panel -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
-          <!-- Attendance Logging Panel -->
+          <!-- Attendance Logging Panel (No ID typing required to scan) -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -213,6 +216,7 @@
             </div>
 
             <div class="space-y-3.5 pt-1">
+              <!-- Shift Dropdown Menu -->
               <div>
                 <label class="text-[11px] sm:text-xs text-gray-400 font-medium mb-1.5 block">Select Shift Schedule</label>
                 <select id="verify-shift" class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-11 text-xs sm:text-sm text-white font-medium focus:outline-none focus:border-[#2563eb]">
@@ -221,6 +225,7 @@
                 </select>
               </div>
 
+              <!-- Check-In / Check-Out Buttons -->
               <div class="grid grid-cols-2 gap-3 pt-1">
                 <button id="btn-checkin" disabled 
                         class="h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
@@ -236,7 +241,7 @@
             </div>
 
             <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
-              Select your shift, center your face in the camera mesh, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+              Select your shift, center your face in the camera, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
             </p>
           </div>
 
@@ -253,6 +258,7 @@
                 </button>
               </div>
 
+              <!-- Enrollment Form: Name + ID + Shift Dropdown -->
               <div class="space-y-2.5 pt-1">
                 <label class="text-[11px] sm:text-xs text-gray-400 font-medium block">New User Enrollment</label>
                 <div class="space-y-2.5">
@@ -277,6 +283,7 @@
                 </div>
               </div>
 
+              <!-- Sensitivity Slider -->
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
                   <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
@@ -287,6 +294,7 @@
               </div>
             </div>
 
+            <!-- Enrolled Personnel Directory -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -300,6 +308,7 @@
               </ul>
             </div>
 
+            <!-- Attendance Activity Logs -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -319,7 +328,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • Interactive Biometric Mesh
+      Facia-tendance Terminal • Supabase Cloud Synced • Responsive Multi-Device Layout
     </footer>
 
   </div>
@@ -358,11 +367,13 @@
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
     const ctx = overlay.getContext('2d');
 
+    // Passcodes (Terminal Homescreen Lock & Admin Panel)
     const TERMINAL_PASSCODE = '123587';
     const ADMIN_PASSCODE = '123587';
 
     let isTerminalUnlocked = false;
     let isAdminAuthenticated = false;
+    
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
@@ -501,6 +512,7 @@
     // Re-Lock Terminal Handler
     $('btn-lock-terminal').onclick = () => {
       isTerminalUnlocked = false;
+      // Stop camera stream when locking homescreen for privacy & battery
       if (mediaStream) {
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = null;
@@ -513,6 +525,7 @@
       $('btn-enroll').disabled = true;
       say('Tap "Start" to activate camera terminal.');
 
+      // Also lock admin panel if open
       isAdminAuthenticated = false;
       $('admin-panel').classList.add('hidden');
       $('attendance-panel').classList.remove('hidden');
@@ -524,6 +537,7 @@
       $('terminal-password').focus();
     };
 
+    // Focus password input on load
     window.addEventListener('DOMContentLoaded', () => {
       $('terminal-password').focus();
     });
@@ -660,7 +674,7 @@
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
-    /* Strict Front Camera Initializer */
+    /* Camera Initializer (Front Camera Only) */
     async function initCamera() {
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
       video.classList.add('mirror'); overlay.classList.add('mirror');
@@ -700,7 +714,7 @@
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Initializing Front Camera…');
+        say('Initializing Camera…');
         await initCamera();
         say('Camera Active. Ready.', '');
         $('btn-checkin').disabled = false;
@@ -715,58 +729,113 @@
       showMesh = !showMesh;
     };
 
-    /* Fast & High-Accuracy Biometric Face Signature Extraction (Optimized 100x100 Grid) */
-    function extractHighAccuracySignature(videoEl) {
+    /* Lighting-Invariant Structural + Luma Biometric Signature Extraction */
+    function captureSingleFrameFeatures(videoEl, canvas, ctx2d) {
+      const vw = videoEl.videoWidth;
+      const vh = videoEl.videoHeight;
+      const sz = Math.min(vw, vh) * 0.62;
+      const sx = (vw - sz) / 2;
+      const sy = (vh - sz) / 2;
+
+      ctx2d.clearRect(0, 0, 96, 96);
+      ctx2d.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 96, 96);
+      const data = ctx2d.getImageData(0, 0, 96, 96).data;
+
+      const lumaGrid = new Float32Array(96 * 96);
+      let lumaSum = 0, lumaSqSum = 0;
+      const n = 96 * 96;
+
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        const yVal = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        lumaGrid[p] = yVal;
+        lumaSum += yVal;
+        lumaSqSum += yVal * yVal;
+      }
+
+      const meanLuma = lumaSum / n;
+      const variance = Math.max(0, (lumaSqSum / n) - (meanLuma * meanLuma));
+      const stdDev = Math.sqrt(variance);
+
+      if (meanLuma < 28 || stdDev < 6.5) {
+        throw new Error("Low contrast or dim lighting. Center your face clearly inside the mesh frame.");
+      }
+
+      // 1. 8x8 zero-mean brightness-normalized luma grid (64 features)
+      const grid = 8;
+      const cell = 96 / grid;
+      const features = [];
+
+      for (let gy = 0; gy < grid; gy++) {
+        for (let gx = 0; gx < grid; gx++) {
+          let sum = 0, cnt = 0;
+          const yStart = Math.floor(gy * cell), yEnd = Math.floor((gy + 1) * cell);
+          const xStart = Math.floor(gx * cell), xEnd = Math.floor((gx + 1) * cell);
+          for (let y = yStart; y < yEnd; y++) {
+            const rowOff = y * 96;
+            for (let x = xStart; x < xEnd; x++) {
+              sum += lumaGrid[rowOff + x];
+              cnt++;
+            }
+          }
+          features.push(((sum / (cnt || 1)) - meanLuma) / stdDev);
+        }
+      }
+
+      // 2. 6x6 local gradient magnitude features (36 features) for facial contour precision
+      const eGrid = 6;
+      const eCell = 96 / eGrid;
+      for (let ey = 0; ey < eGrid; ey++) {
+        for (let ex = 0; ex < eGrid; ex++) {
+          let gradSum = 0, cnt = 0;
+          const yStart = Math.max(1, Math.floor(ey * eCell));
+          const yEnd = Math.min(95, Math.floor((ey + 1) * eCell));
+          const xStart = Math.max(1, Math.floor(ex * eCell));
+          const xEnd = Math.min(95, Math.floor((ex + 1) * eCell));
+          for (let y = yStart; y < yEnd; y++) {
+            const row = y * 96;
+            for (let x = xStart; x < xEnd; x++) {
+              const dx = lumaGrid[row + x + 1] - lumaGrid[row + x - 1];
+              const dy = lumaGrid[row + 96 + x] - lumaGrid[row - 96 + x];
+              gradSum += Math.hypot(dx, dy);
+              cnt++;
+            }
+          }
+          features.push((gradSum / (cnt || 1)) / (stdDev || 1));
+        }
+      }
+
+      return features;
+    }
+
+    async function extractHighAccuracySignature(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = 100; canvas.height = 100;
-      const c = canvas.getContext('2d');
-      
-      const vw = videoEl.videoWidth;
-      const vh = videoEl.videoHeight;
-      const sz = Math.min(vw, vh) * 0.75;
-      const sx = (vw - sz) / 2;
-      const sy = (vh - sz) / 2;
+      canvas.width = 96;
+      canvas.height = 96;
+      const ctx2d = canvas.getContext('2d', { willReadFrequently: true });
 
-      c.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 100, 100);
-      const imgData = c.getImageData(0, 0, 100, 100).data;
-      
-      let lumaSum = 0, lumaSqSum = 0, totalPixels = imgData.length / 4;
-      for (let i = 0; i < imgData.length; i += 4) {
-        const luma = 0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2];
-        lumaSum += luma;
-        lumaSqSum += luma * luma;
-      }
-      const meanLuma = lumaSum / totalPixels;
-      const variance = (lumaSqSum / totalPixels) - (meanLuma * meanLuma);
-      
-      if (variance < 25.0) {
-        throw new Error("Strict Check Failed: Image lacks facial contrast or sharpness. Center your face in the grid.");
+      // 3-frame rapid burst averaging to filter sensor noise & micro-jitter
+      const samples = [];
+      for (let i = 0; i < 3; i++) {
+        samples.push(captureSingleFrameFeatures(videoEl, canvas, ctx2d));
+        if (i < 2) await sleep(55);
       }
 
-      const gridSize = 5;
-      const zoneSize = 100 / gridSize;
-      const signature = [];
-
-      for (let zr = 0; zr < gridSize; zr++) {
-        for (let zc = 0; zc < gridSize; zc++) {
-          let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let y = zr * zoneSize; y < (zr + 1) * zoneSize; y += 1) {
-            for (let x = zc * zoneSize; x < (zc + 1) * zoneSize; x += 1) {
-              const idx = (Math.floor(y) * 100 + Math.floor(x)) * 4;
-              rSum += imgData[idx];
-              gSum += imgData[idx+1];
-              bSum += imgData[idx+2];
-              count++;
-            }
-          }
-          signature.push(rSum / (count || 1), gSum / (count || 1), bSum / (count || 1));
+      const dim = samples[0].length;
+      const averaged = new Array(dim).fill(0);
+      for (let s = 0; s < samples.length; s++) {
+        for (let d = 0; d < dim; d++) {
+          averaged[d] += samples[s][d];
         }
       }
-      return signature;
+      for (let d = 0; d < dim; d++) {
+        averaged[d] /= samples.length;
+      }
+
+      return l2Normalize(averaged);
     }
 
     /* Robust L2-Normalized Cosine Similarity with String/JSON/Object Parsing */
@@ -835,20 +904,27 @@
       const rx = cx - rw / 2;
       const ry = cy - rh / 2;
 
+      // Outer targeting frame
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(rx, ry, rw, rh);
       ctx.setLineDash([]);
 
+      // Corner accent brackets
       const bl = 16;
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 3;
+      // Top-left
       ctx.beginPath(); ctx.moveTo(rx, ry + bl); ctx.lineTo(rx, ry); ctx.lineTo(rx + bl, ry); ctx.stroke();
+      // Top-right
       ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + bl); ctx.stroke();
+      // Bottom-left
       ctx.beginPath(); ctx.moveTo(rx, ry + rh - bl); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + bl, ry + rh); ctx.stroke();
+      // Bottom-right
       ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - bl); ctx.stroke();
 
+      // Dynamic Face Mesh Nodes (5x5 Grid with connecting wireframe lines)
       const cols = 5, rows = 5;
       const stepX = rw / (cols - 1);
       const stepY = rh / (rows - 1);
@@ -860,12 +936,15 @@
           const nx = rx + (col * stepX) + Math.sin(meshPhase + r) * 1.5;
           const ny = ry + (r * stepY) + Math.cos(meshPhase + col) * 1.5;
           rowNodes.push({x: nx, y: ny});
+          
+          // Draw node dot
           ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
           ctx.fillRect(nx - 1.5, ny - 1.5, 3, 3);
         }
         nodes.push(rowNodes);
       }
 
+      // Draw wireframe mesh connections
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
       ctx.lineWidth = 1;
       for (let r = 0; r < rows; r++) {
@@ -905,7 +984,7 @@
         say('Capturing high-accuracy biometric signature…');
         await sleep(600);
 
-        const signature = extractHighAccuracySignature(video);
+        const signature = await extractHighAccuracySignature(video);
 
         const { error } = await supabaseClient.from('enrolled_personnel').insert([{
           name,
@@ -937,7 +1016,7 @@
         say(`Scanning face for ${actionType} (${shift})…`);
         await sleep(400);
 
-        const currentSig = extractHighAccuracySignature(video);
+        const currentSig = await extractHighAccuracySignature(video);
 
         const { data: personnel, error } = await supabaseClient
           .from('enrolled_personnel')
