@@ -845,12 +845,13 @@
       return arr.map(v => (Number(v) || 0) / mag);
     }
 
-    const CROP_SIZE = 64;
+    const CROP_SIZE = 96;
     const cropCanvas = document.createElement('canvas');
     cropCanvas.width = CROP_SIZE;
     cropCanvas.height = CROP_SIZE;
     const c2d = cropCanvas.getContext('2d', { willReadFrequently: true });
     const lumaBuffer = new Float32Array(CROP_SIZE * CROP_SIZE);
+    const localNormBuffer = new Float32Array(CROP_SIZE * CROP_SIZE);
 
     function extractBlazeFaceSignatureFromPrediction(videoEl, pred) {
       const [x1, y1] = pred.topLeft;
@@ -867,7 +868,7 @@
       const rEar = landmarks[4];
       const lEar = landmarks[5];
 
-      // 1. Scale- and translation-invariant 6-landmark facial geometry ratios
+      // 1. Scale-, rotation-, and translation-invariant 6-landmark facial geometry ratios
       const eyeDx = lEye[0] - rEye[0];
       const eyeDy = lEye[1] - rEye[1];
       const eyeDist = Math.hypot(eyeDx, eyeDy) || 1;
@@ -897,44 +898,66 @@
       const eyeToNose = Math.hypot(nNose[0], nNose[1]);
       const eyeToMouth = Math.hypot(nMouth[0], nMouth[1]);
       const earSpan = Math.hypot(nLEar[0] - nREar[0], nLEar[1] - nREar[1]);
+      const leftEyeToNose = Math.hypot(nLEye[0] - nNose[0], nLEye[1] - nNose[1]);
+      const rightEyeToNose = Math.hypot(nREye[0] - nNose[0], nREye[1] - nNose[1]);
       const faceAspect = bw / bh;
 
       const geoFeatures = [
         ...nREye, ...nLEye, ...nNose, ...nMouth, ...nREar, ...nLEar,
         noseToMouth, eyeToNose, eyeToMouth, earSpan, faceAspect,
-        eyeDist / bw
+        eyeDist / bw, leftEyeToNose / (rightEyeToNose || 1)
       ];
 
-      // 2. Roll-aligned cropped facial texture & gradient descriptor around detected BlazeFace box
-      const faceCenterX = (x1 + x2) / 2;
-      const faceCenterY = (y1 + y2) / 2;
-      const cropScale = Math.max(bw, bh) * 0.92;
+      // 2. Eye-anchored, roll-aligned facial crop for consistent framing across distances
+      const anchorX = eyeMidX;
+      const anchorY = eyeMidY + eyeDist * 0.45;
+      const cropScale = eyeDist * 3.1;
 
       c2d.save();
       c2d.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
       c2d.translate(CROP_SIZE / 2, CROP_SIZE / 2);
       c2d.rotate(-rollAngle);
       c2d.scale(CROP_SIZE / cropScale, CROP_SIZE / cropScale);
-      c2d.drawImage(videoEl, -faceCenterX, -faceCenterY);
+      c2d.drawImage(videoEl, -anchorX, -anchorY);
       c2d.restore();
 
       const imgData = c2d.getImageData(0, 0, CROP_SIZE, CROP_SIZE).data;
-      let sum = 0, sqSum = 0;
       const n = CROP_SIZE * CROP_SIZE;
 
       for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
-        const yVal = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-        lumaBuffer[p] = yVal;
-        sum += yVal;
-        sqSum += yVal * yVal;
+        lumaBuffer[p] = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
       }
 
-      const mean = sum / n;
-      const std = Math.sqrt(Math.max(1, (sqSum / n) - mean * mean));
+      // Difference-of-local-box lighting normalization (reduces directional shadows/lighting drift)
+      const rad = 6;
+      for (let y = 0; y < CROP_SIZE; y++) {
+        const y0 = Math.max(0, y - rad), y1 = Math.min(CROP_SIZE - 1, y + rad);
+        for (let x = 0; x < CROP_SIZE; x++) {
+          const x0 = Math.max(0, x - rad), x1 = Math.min(CROP_SIZE - 1, x + rad);
+          let bSum = 0, cnt = 0;
+          for (let yy = y0; yy <= y1; yy++) {
+            const off = yy * CROP_SIZE;
+            for (let xx = x0; xx <= x1; xx++) {
+              bSum += lumaBuffer[off + xx];
+              cnt++;
+            }
+          }
+          localNormBuffer[y * CROP_SIZE + x] = lumaBuffer[y * CROP_SIZE + x] - (bSum / (cnt || 1));
+        }
+      }
 
-      // 8x8 normalized luma patches (64 features)
-      const textureFeatures = new Array(64);
-      const grid = 8;
+      let lSum = 0, lSq = 0;
+      for (let p = 0; p < n; p++) {
+        const v = localNormBuffer[p];
+        lSum += v;
+        lSq += v * v;
+      }
+      const lMean = lSum / n;
+      const lStd = Math.sqrt(Math.max(1, (lSq / n) - lMean * lMean));
+
+      // 12x12 local-contrast facial grid (144 features)
+      const textureFeatures = new Array(144);
+      const grid = 12;
       const cell = CROP_SIZE / grid;
       let tIdx = 0;
       for (let gy = 0; gy < grid; gy++) {
@@ -943,40 +966,45 @@
           for (let y = gy * cell; y < (gy + 1) * cell; y++) {
             const rowOff = y * CROP_SIZE;
             for (let x = gx * cell; x < (gx + 1) * cell; x++) {
-              bSum += lumaBuffer[rowOff + x];
+              bSum += localNormBuffer[rowOff + x];
               cnt++;
             }
           }
-          textureFeatures[tIdx++] = ((bSum / cnt) - mean) / std;
+          textureFeatures[tIdx++] = ((bSum / cnt) - lMean) / lStd;
         }
       }
 
-      // 6x6 facial edge/contour gradients (36 features)
-      const edgeFeatures = new Array(36);
-      const eGrid = 6;
-      const eCell = CROP_SIZE / eGrid;
-      let eIdx = 0;
-      for (let ey = 0; ey < eGrid; ey++) {
-        for (let ex = 0; ex < eGrid; ex++) {
-          let gSum = 0, cnt = 0;
-          const ys = Math.max(1, Math.floor(ey * eCell)), ye = Math.min(CROP_SIZE - 1, Math.floor((ey + 1) * eCell));
-          const xs = Math.max(1, Math.floor(ex * eCell)), xe = Math.min(CROP_SIZE - 1, Math.floor((ex + 1) * eCell));
-          for (let y = ys; y < ye; y++) {
+      // 8x8 oriented gradient histogram (4 direction bins per cell = 256 features)
+      const gGrid = 8;
+      const gCell = CROP_SIZE / gGrid;
+      const hogFeatures = new Array(gGrid * gGrid * 4).fill(0);
+      for (let gy = 0; gy < gGrid; gy++) {
+        for (let gx = 0; gx < gGrid; gx++) {
+          const ys = Math.max(1, Math.floor(gy * gCell));
+          const ye = Math.min(CROP_SIZE - 2, Math.floor((gy + 1) * gCell));
+          const xs = Math.max(1, Math.floor(gx * gCell));
+          const xe = Math.min(CROP_SIZE - 2, Math.floor((gx + 1) * gCell));
+          const baseIdx = (gy * gGrid + gx) * 4;
+          for (let y = ys; y <= ye; y++) {
             const rowOff = y * CROP_SIZE;
-            for (let x = xs; x < xe; x++) {
-              const dx = lumaBuffer[rowOff + (x + 1)] - lumaBuffer[rowOff + (x - 1)];
-              const dy = lumaBuffer[(y + 1) * CROP_SIZE + x] - lumaBuffer[(y - 1) * CROP_SIZE + x];
-              gSum += Math.hypot(dx, dy);
-              cnt++;
+            for (let x = xs; x <= xe; x++) {
+              const dx = localNormBuffer[rowOff + (x + 1)] - localNormBuffer[rowOff + (x - 1)];
+              const dy = localNormBuffer[(y + 1) * CROP_SIZE + x] - localNormBuffer[(y - 1) * CROP_SIZE + x];
+              const mag = Math.hypot(dx, dy);
+              const ang = Math.atan2(Math.abs(dy), Math.abs(dx)); // [0, pi/2]
+              const bin = Math.min(3, Math.floor((ang / (Math.PI / 2)) * 4));
+              hogFeatures[baseIdx + bin] += mag;
             }
           }
-          edgeFeatures[eIdx++] = (gSum / (cnt || 1)) / std;
+          for (let b = 0; b < 4; b++) {
+            hogFeatures[baseIdx + b] /= ((lStd * ((ye - ys + 1) * (xe - xs + 1))) || 1);
+          }
         }
       }
 
-      // Weight facial landmark geometry + aligned facial features and L2 normalize
-      const weightedGeo = geoFeatures.map(v => v * 1.4);
-      return l2Normalize([...weightedGeo, ...textureFeatures, ...edgeFeatures]);
+      const weightedGeo = geoFeatures.map(v => v * 1.6);
+      const weightedTex = textureFeatures.map(v => v * 1.15);
+      return l2Normalize([...weightedGeo, ...weightedTex, ...hogFeatures]);
     }
 
     async function captureBlazeFaceSignature(videoEl) {
@@ -985,30 +1013,31 @@
       }
 
       const model = await loadBlazeFaceModel();
-      // Fast path: if live tracker already has a fresh BlazeFace lock (<180ms old), use it + 1 confirmation frame
-      const hasFreshLock = latestBlazeFace && (performance.now() - lastTrackTime < 180);
+      const samples = [];
 
-      if (hasFreshLock) {
-        const [sigA, predsB] = await Promise.all([
-          Promise.resolve(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace)),
-          model.estimateFaces(videoEl, false)
-        ]);
-        if (!predsB || predsB.length === 0) {
-          return sigA;
+      // Sample 3 frames with short pacing so temporary motion/blink doesn't skew the scan
+      for (let s = 0; s < 3; s++) {
+        const preds = await model.estimateFaces(videoEl, false);
+        if (preds && preds.length > 0) {
+          latestBlazeFace = preds[0];
+          lastTrackTime = performance.now();
+          samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace));
+        } else if (latestBlazeFace && (performance.now() - lastTrackTime < 220)) {
+          samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace));
         }
-        latestBlazeFace = predsB[0];
-        const sigB = extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace);
-        const avg = new Array(sigA.length);
-        for (let d = 0; d < sigA.length; d++) avg[d] = (sigA[d] + sigB[d]) * 0.5;
-        return l2Normalize(avg);
+        if (s < 2) await sleep(55);
       }
 
-      const predictions = await model.estimateFaces(videoEl, false);
-      if (!predictions || predictions.length === 0) {
-        throw new Error("BlazeFace could not detect a face. Face the camera clearly.");
+      if (!samples.length) {
+        throw new Error("Could not detect a face clearly. Center your face and try again.");
       }
-      latestBlazeFace = predictions[0];
-      return extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace);
+
+      const dim = samples[0].length;
+      const avg = new Array(dim).fill(0);
+      for (const sig of samples) {
+        for (let d = 0; d < dim; d++) avg[d] += sig[d] / samples.length;
+      }
+      return l2Normalize(avg);
     }
 
     function parseSignature(raw) {
