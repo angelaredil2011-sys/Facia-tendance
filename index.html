@@ -10,8 +10,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Face-API (Facial Landmark & 128D Feature Descriptor Engine) -->
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <!-- TensorFlow.js & BlazeFace CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -130,7 +131,7 @@
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
-            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">68-Point Facial Feature Biometrics</p>
+            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">BlazeFace Keypoint Biometrics</p>
           </div>
         </div>
         
@@ -177,13 +178,13 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                FACIAL LANDMARKS READY
+                BLAZEFACE ENGINE READY
               </span>
             </div>
 
             <!-- Camera Action Floating Controls -->
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" title="Toggle Landmarks & Grid" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+              <button id="btn-mesh-toggle" title="Toggle BlazeFace Overlay" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
                 <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
               </button>
               <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -286,9 +287,9 @@
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
                   <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
-                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.75</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.78</span>
                 </div>
-                <input type="range" id="thr" min="0.6" max="0.95" step="0.01" value="0.75" 
+                <input type="range" id="thr" min="0.6" max="0.95" step="0.01" value="0.78" 
                        class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
               </div>
             </div>
@@ -327,7 +328,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • Facial Feature Biometrics
+      Facia-tendance Terminal • Supabase Cloud Synced • BlazeFace Biometrics
     </footer>
 
   </div>
@@ -376,8 +377,8 @@
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
-    let modelsLoaded = false;
-    let latestDetection = null;
+    let blazeModel = null;
+    let latestBlazeFace = null;
 
     // ========================================================
     // SUPABASE CONNECTION
@@ -518,7 +519,7 @@
         mediaStream = null;
       }
       isCameraActive = false;
-      latestDetection = null;
+      latestBlazeFace = null;
       $('cam-btn-text').textContent = 'Start';
       $('btn-start-cam').classList.replace('bg-emerald-600', 'bg-[#2563eb]');
       $('btn-checkin').disabled = true;
@@ -673,22 +674,19 @@
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
-    /* Load Facial Landmark & Recognition Models */
-    async function loadFacialModels() {
-      if (modelsLoaded || !window.faceapi) return;
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        modelsLoaded = true;
-        $('telemetry-mesh').textContent = '68-POINT FACE ENGINE READY';
-      } catch (e) {
-        console.warn('Face models fallback active:', e);
-        $('telemetry-mesh').textContent = 'LANDMARK FALLBACK ACTIVE';
+    /* Load TensorFlow.js BlazeFace Model */
+    async function loadBlazeFaceModel() {
+      if (blazeModel) return blazeModel;
+      if (!window.blazeface) {
+        throw new Error("BlazeFace library failed to load. Check internet connection.");
       }
+      $('telemetry-mesh').textContent = 'LOADING BLAZEFACE…';
+      if (window.tf && tf.ready) {
+        await tf.ready();
+      }
+      blazeModel = await blazeface.load({ maxFaces: 1, scoreThreshold: 0.75 });
+      $('telemetry-mesh').textContent = 'BLAZEFACE 6-KEYPOINT READY';
+      return blazeModel;
     }
 
     /* Camera Initializer (Front Camera Only) */
@@ -728,14 +726,14 @@
       $('cam-btn-text').textContent = "Active";
       $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
 
-      loadFacialModels();
+      await loadBlazeFaceModel();
     }
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Initializing Front Camera & Facial Engine…');
+        say('Initializing Front Camera & BlazeFace…');
         await initCamera();
-        say('Camera Active. Align your face for verification.', '');
+        say('BlazeFace Active. Center your face in the frame.', '');
         $('btn-checkin').disabled = false;
         $('btn-checkout').disabled = false;
         $('btn-enroll').disabled = false;
@@ -748,126 +746,233 @@
       showMesh = !showMesh;
     };
 
-    /* Real-Time Facial Feature Detection & 128D Descriptor Extraction */
-    async function detectFaceWithFeatures(videoEl) {
+    /* ========================================================
+       BLAZEFACE FACIAL FEATURE & EYE-ALIGNED SIGNATURE ENGINE
+       Uses BlazeFace bounding box + 6 facial landmarks:
+       [0] Right Eye, [1] Left Eye, [2] Nose Tip,
+       [3] Mouth Center, [4] Right Ear Tragion, [5] Left Ear Tragion
+       ======================================================== */
+    function l2Normalize(arr) {
+      let sumSq = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const v = Number(arr[i]) || 0;
+        sumSq += v * v;
+      }
+      const mag = Math.sqrt(sumSq) || 1;
+      return arr.map(v => (Number(v) || 0) / mag);
+    }
+
+    function extractBlazeFaceSignatureFromPrediction(videoEl, pred) {
+      const [x1, y1] = pred.topLeft;
+      const [x2, y2] = pred.bottomRight;
+      const landmarks = pred.landmarks; // 6 keypoints: [rightEye, leftEye, nose, mouth, rightEar, leftEar]
+
+      const bw = Math.max(1, x2 - x1);
+      const bh = Math.max(1, y2 - y1);
+
+      const rEye = landmarks[0];
+      const lEye = landmarks[1];
+      const nose = landmarks[2];
+      const mouth = landmarks[3];
+      const rEar = landmarks[4];
+      const lEar = landmarks[5];
+
+      // 1. Scale- and translation-invariant 6-landmark facial geometry ratios (18 features)
+      const eyeDx = lEye[0] - rEye[0];
+      const eyeDy = lEye[1] - rEye[1];
+      const eyeDist = Math.hypot(eyeDx, eyeDy) || 1;
+      const eyeMidX = (rEye[0] + lEye[0]) / 2;
+      const eyeMidY = (rEye[1] + lEye[1]) / 2;
+      const rollAngle = Math.atan2(eyeDy, eyeDx);
+      const cosA = Math.cos(-rollAngle);
+      const sinA = Math.sin(-rollAngle);
+
+      const normPt = (pt) => {
+        const dx = pt[0] - eyeMidX;
+        const dy = pt[1] - eyeMidY;
+        return [
+          (dx * cosA - dy * sinA) / eyeDist,
+          (dx * sinA + dy * cosA) / eyeDist
+        ];
+      };
+
+      const nREye = normPt(rEye);
+      const nLEye = normPt(lEye);
+      const nNose = normPt(nose);
+      const nMouth = normPt(mouth);
+      const nREar = normPt(rEar);
+      const nLEar = normPt(lEar);
+
+      const noseToMouth = Math.hypot(nNose[0] - nMouth[0], nNose[1] - nMouth[1]);
+      const eyeToNose = Math.hypot(nNose[0], nNose[1]);
+      const eyeToMouth = Math.hypot(nMouth[0], nMouth[1]);
+      const earSpan = Math.hypot(nLEar[0] - nREar[0], nLEar[1] - nREar[1]);
+      const faceAspect = bw / bh;
+
+      const geoFeatures = [
+        ...nREye, ...nLEye, ...nNose, ...nMouth, ...nREar, ...nLEar,
+        noseToMouth, eyeToNose, eyeToMouth, earSpan, faceAspect,
+        eyeDist / bw
+      ];
+
+      // 2. Roll-aligned cropped facial texture & gradient descriptor around detected BlazeFace box (100 features)
+      const size = 64;
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = size;
+      cropCanvas.height = size;
+      const c2d = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+      const faceCenterX = (x1 + x2) / 2;
+      const faceCenterY = (y1 + y2) / 2;
+      const cropScale = Math.max(bw, bh) * 0.92;
+
+      c2d.save();
+      c2d.translate(size / 2, size / 2);
+      c2d.rotate(-rollAngle);
+      c2d.scale(size / cropScale, size / cropScale);
+      c2d.drawImage(videoEl, -faceCenterX, -faceCenterY);
+      c2d.restore();
+
+      const imgData = c2d.getImageData(0, 0, size, size).data;
+      const luma = new Float32Array(size * size);
+      let sum = 0, sqSum = 0;
+      const n = size * size;
+
+      for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
+        const yVal = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
+        luma[p] = yVal;
+        sum += yVal;
+        sqSum += yVal * yVal;
+      }
+
+      const mean = sum / n;
+      const std = Math.sqrt(Math.max(1, (sqSum / n) - mean * mean));
+
+      // 8x8 normalized luma patches (64 features)
+      const textureFeatures = [];
+      const grid = 8;
+      const cell = size / grid;
+      for (let gy = 0; gy < grid; gy++) {
+        for (let gx = 0; gx < grid; gx++) {
+          let bSum = 0, cnt = 0;
+          for (let y = gy * cell; y < (gy + 1) * cell; y++) {
+            for (let x = gx * cell; x < (gx + 1) * cell; x++) {
+              bSum += luma[y * size + x];
+              cnt++;
+            }
+          }
+          textureFeatures.push(((bSum / cnt) - mean) / std);
+        }
+      }
+
+      // 6x6 facial edge/contour gradients (36 features)
+      const edgeFeatures = [];
+      const eGrid = 6;
+      const eCell = size / eGrid;
+      for (let ey = 0; ey < eGrid; ey++) {
+        for (let ex = 0; ex < eGrid; ex++) {
+          let gSum = 0, cnt = 0;
+          const ys = Math.max(1, Math.floor(ey * eCell)), ye = Math.min(size - 1, Math.floor((ey + 1) * eCell));
+          const xs = Math.max(1, Math.floor(ex * eCell)), xe = Math.min(size - 1, Math.floor((ex + 1) * eCell));
+          for (let y = ys; y < ye; y++) {
+            for (let x = xs; x < xe; x++) {
+              const dx = luma[y * size + (x + 1)] - luma[y * size + (x - 1)];
+              const dy = luma[(y + 1) * size + x] - luma[(y - 1) * size + x];
+              gSum += Math.hypot(dx, dy);
+              cnt++;
+            }
+          }
+          edgeFeatures.push((gSum / (cnt || 1)) / std);
+        }
+      }
+
+      // Weight facial landmark geometry + aligned facial features and L2 normalize
+      const weightedGeo = geoFeatures.map(v => v * 1.4);
+      return l2Normalize([...weightedGeo, ...textureFeatures, ...edgeFeatures]);
+    }
+
+    async function captureBlazeFaceSignature(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
       }
 
-      if (!modelsLoaded) {
-        await loadFacialModels();
-      }
+      const model = await loadBlazeFaceModel();
+      const samples = [];
 
-      if (modelsLoaded && window.faceapi) {
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
-        const result = await faceapi
-          .detectSingleFace(videoEl, options)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-
-        if (!result || !result.descriptor) {
-          throw new Error("No clear face detected. Look directly at the front camera.");
+      // Capture 3 rapid BlazeFace frames for stability
+      for (let i = 0; i < 3; i++) {
+        const predictions = await model.estimateFaces(videoEl, false);
+        if (!predictions || predictions.length === 0) {
+          throw new Error("BlazeFace could not detect a face. Face the camera clearly.");
         }
-
-        return {
-          descriptor: Array.from(result.descriptor),
-          box: result.detection.box,
-          landmarks: result.landmarks,
-          type: 'faceapi-128d'
-        };
+        const pred = predictions[0];
+        latestBlazeFace = pred;
+        samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, pred));
+        if (i < 2) await sleep(65);
       }
 
-      // Fallback geometric facial feature extractor if offline
-      const canvas = document.createElement('canvas');
-      canvas.width = 96; canvas.height = 96;
-      const c2d = canvas.getContext('2d', { willReadFrequently: true });
-      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-      const sz = Math.min(vw, vh) * 0.62;
-      const sx = (vw - sz) / 2, sy = (vh - sz) / 2;
-      c2d.drawImage(videoEl, sx, sy, sz, sz, 0, 0, 96, 96);
-      const data = c2d.getImageData(0, 0, 96, 96).data;
-
-      const luma = new Float32Array(96 * 96);
-      let sum = 0, sqSum = 0;
-      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-        const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        luma[p] = y; sum += y; sqSum += y * y;
-      }
-      const mean = sum / (96 * 96);
-      const std = Math.sqrt(Math.max(0.01, (sqSum / (96 * 96)) - mean * mean));
-      if (mean < 28 || std < 6.5) {
-        throw new Error("Low lighting or contrast. Improve lighting and face the camera.");
-      }
-
-      const vec = [];
-      for (let gy = 0; gy < 8; gy++) {
-        for (let gx = 0; gx < 8; gx++) {
-          let bSum = 0, cnt = 0;
-          for (let y = gy * 12; y < (gy + 1) * 12; y++) {
-            for (let x = gx * 12; x < (gx + 1) * 12; x++) {
-              bSum += luma[y * 96 + x]; cnt++;
-            }
-          }
-          vec.push(((bSum / cnt) - mean) / std);
+      const dim = samples[0].length;
+      const avg = new Array(dim).fill(0);
+      for (let s = 0; s < samples.length; s++) {
+        for (let d = 0; d < dim; d++) {
+          avg[d] += samples[s][d];
         }
       }
-      return { descriptor: vec, box: null, landmarks: null, type: 'fallback-luma' };
+      for (let d = 0; d < dim; d++) {
+        avg[d] /= samples.length;
+      }
+
+      return l2Normalize(avg);
     }
 
-    function parseDescriptor(raw) {
+    function parseSignature(raw) {
       if (!raw) return [];
       if (Array.isArray(raw)) return raw.map(Number);
       if (typeof raw === 'string') {
         try {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) return parsed.map(Number);
-          if (parsed && Array.isArray(parsed.descriptor)) return parsed.descriptor.map(Number);
         } catch (e) {}
       }
       if (typeof raw === 'object') {
-        if (Array.isArray(raw.descriptor)) return raw.descriptor.map(Number);
         return Object.values(raw).map(Number);
       }
       return [];
     }
 
-    /* Compare Facial Feature Descriptors (Returns 0.0 to 1.0 similarity) */
-    function compareFacialFeatures(descA, descB) {
-      const a = parseDescriptor(descA);
-      const b = parseDescriptor(descB);
+    function compareBlazeFaceSignatures(sigA, sigB) {
+      const a = parseSignature(sigA);
+      const b = parseSignature(sigB);
       if (!a.length || !b.length || a.length !== b.length) return 0;
 
-      if (a.length === 128 && window.faceapi) {
-        const dist = faceapi.euclideanDistance(a, b);
-        return Math.max(0, Math.min(1, 1 - (dist / 0.95)));
+      const normA = l2Normalize(a);
+      const normB = l2Normalize(b);
+      let dot = 0;
+      for (let i = 0; i < normA.length; i++) {
+        dot += normA[i] * normB[i];
       }
-
-      let dot = 0, magA = 0, magB = 0;
-      for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        magA += a[i] * a[i];
-        magB += b[i] * b[i];
-      }
-      const denom = Math.sqrt(magA) * Math.sqrt(magB) || 1;
-      return Math.max(0, Math.min(1, dot / denom));
+      return Math.max(0, Math.min(1, dot));
     }
 
-    /* Live Facial Landmark & Biometric Mesh Renderer */
+    /* Live BlazeFace Detection & 6-Keypoint Overlay Loop */
     let meshPhase = 0;
-    let lastLiveTrackTime = 0;
+    let lastTrackTime = 0;
+    let isTrackingBusy = false;
 
-    async function updateLiveFaceTracking() {
-      if (!isCameraActive || !modelsLoaded || !window.faceapi) return;
+    async function updateLiveBlazeFace() {
+      if (!isCameraActive || !blazeModel || isTrackingBusy) return;
       const now = performance.now();
-      if (now - lastLiveTrackTime < 140) return;
-      lastLiveTrackTime = now;
+      if (now - lastTrackTime < 110) return;
+      lastTrackTime = now;
+      isTrackingBusy = true;
 
       try {
-        const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
-        const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks();
-        latestDetection = det || null;
+        const preds = await blazeModel.estimateFaces(video, false);
+        latestBlazeFace = (preds && preds.length > 0) ? preds[0] : null;
       } catch (e) {
-        latestDetection = null;
+        latestBlazeFace = null;
+      } finally {
+        isTrackingBusy = false;
       }
     }
 
@@ -883,60 +988,80 @@
       const cx = vw / 2;
       const cy = vh / 2;
 
-      $('telemetry-dot').className = latestDetection
+      $('telemetry-dot').className = latestBlazeFace
         ? 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse'
         : 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400';
 
       $('telemetry-text').textContent = !isCameraActive
         ? 'CAMERA STANDBY'
-        : latestDetection
-          ? 'FACE LOCKED • FEATURES READY'
-          : 'SCANNING FOR FACE…';
+        : latestBlazeFace
+          ? 'BLAZEFACE LOCKED (6 KEYPOINTS)'
+          : 'SEARCHING FOR FACE…';
 
       if (!showMesh) return;
 
       meshPhase += 0.05;
 
-      if (latestDetection && latestDetection.detection && latestDetection.landmarks) {
-        const { x, y, width, height } = latestDetection.detection.box;
+      // Draw real BlazeFace bounding box + 6 facial landmarks when locked
+      if (latestBlazeFace) {
+        const [x1, y1] = latestBlazeFace.topLeft;
+        const [x2, y2] = latestBlazeFace.bottomRight;
+        const bw = x2 - x1;
+        const bh = y2 - y1;
+
         ctx.strokeStyle = 'rgba(52, 211, 153, 0.9)';
         ctx.lineWidth = 2.5;
-        ctx.strokeRect(x, y, width, height);
+        ctx.strokeRect(x1, y1, bw, bh);
 
-        const pts = latestDetection.landmarks.positions;
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
-        for (let i = 0; i < pts.length; i++) {
-          ctx.beginPath();
-          ctx.arc(pts[i].x, pts[i].y, 2, 0, Math.PI * 2);
-          ctx.fill();
+        // Corner brackets on BlazeFace box
+        const bl = Math.min(18, bw * 0.18);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x1, y1 + bl); ctx.lineTo(x1, y1); ctx.lineTo(x1 + bl, y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x2 - bl, y1); ctx.lineTo(x2, y1); ctx.lineTo(x2, y1 + bl); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1, y2 - bl); ctx.lineTo(x1, y2); ctx.lineTo(x1 + bl, y2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x2 - bl, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - bl); ctx.stroke();
+
+        // Draw 6 BlazeFace facial keypoints (eyes, nose, mouth, ears) + connecting mesh
+        const pts = latestBlazeFace.landmarks;
+        if (pts && pts.length >= 6) {
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+          ctx.lineWidth = 1.2;
+          const pairs = [[0, 1], [0, 2], [1, 2], [2, 3], [0, 4], [1, 5], [4, 3], [5, 3]];
+          for (const [i, j] of pairs) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i][0], pts[i][1]);
+            ctx.lineTo(pts[j][0], pts[j][1]);
+            ctx.stroke();
+          }
+
+          for (let i = 0; i < pts.length; i++) {
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(pts[i][0], pts[i][1], 3.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         return;
       }
 
+      // Standby alignment guide when no face is in frame yet
       const pulse = Math.sin(meshPhase) * 3;
       const rw = (vw * 0.45) + pulse;
       const rh = (vh * 0.48) + pulse;
       const rx = cx - rw / 2;
       const ry = cy - rh / 2;
 
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(rx, ry, rw, rh);
       ctx.setLineDash([]);
-
-      const bl = 16;
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(rx, ry + bl); ctx.lineTo(rx, ry); ctx.lineTo(rx + bl, ry); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + bl); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(rx, ry + rh - bl); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + bl, ry + rh); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(rx + rw - bl, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - bl); ctx.stroke();
     }
 
     function loop() {
       if (isCameraActive) {
-        updateLiveFaceTracking();
+        updateLiveBlazeFace();
         drawOverlay();
       }
       requestAnimationFrame(loop);
@@ -944,7 +1069,7 @@
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    /* Enrollment Handler (Stores Facial Feature Descriptor) */
+    /* Enrollment Handler (Stores BlazeFace Feature Signature) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -957,11 +1082,8 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Analyzing facial landmarks & features…');
-        await sleep(300);
-
-        const detection = await detectFaceWithFeatures(video);
-        const signature = detection.descriptor;
+        say('Capturing BlazeFace 6-keypoint signature…');
+        const signature = await captureBlazeFaceSignature(video);
 
         const { error } = await supabaseClient.from('enrolled_personnel').insert([{
           name,
@@ -983,7 +1105,7 @@
       }
     };
 
-    /* Attendance Logging Helper (Matches by Facial Features) */
+    /* Attendance Logging Helper (Matches via BlazeFace Signature) */
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
 
@@ -992,9 +1114,8 @@
       $('btn-checkout').disabled = true;
 
       try {
-        say(`Scanning facial features for ${actionType} (${shift})…`);
-        const liveDetection = await detectFaceWithFeatures(video);
-        const currentDesc = liveDetection.descriptor;
+        say(`Scanning BlazeFace features for ${actionType} (${shift})…`);
+        const currentSig = await captureBlazeFaceSignature(video);
 
         const { data: personnel, error } = await supabaseClient
           .from('enrolled_personnel')
@@ -1010,7 +1131,7 @@
         let bestMatch = { person: null, similarity: 0 };
 
         for (const p of personnel) {
-          const similarity = compareFacialFeatures(currentDesc, p.signature);
+          const similarity = compareBlazeFaceSignatures(currentSig, p.signature);
           if (similarity > bestMatch.similarity) {
             bestMatch = { person: p, similarity };
           }
