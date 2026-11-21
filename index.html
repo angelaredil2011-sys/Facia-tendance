@@ -10,9 +10,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- TensorFlow.js & BlazeFace CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
+  <!-- TensorFlow.js & BlazeFace CDN (with jsDelivr + unpkg fallback) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"
+          onerror="this.onerror=null;this.src='https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js';"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"
+          onerror="this.onerror=null;this.src='https://unpkg.com/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js';"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -603,6 +605,7 @@
         delBtn.onclick = async () => {
           if (!confirm(`Delete ${p.name} from cloud database?`)) return;
           await supabaseClient.from('enrolled_personnel').delete().eq('id', p.id);
+          cachedPersonnel = null;
           fetchPersonnel();
         };
         li.appendChild(delBtn);
@@ -674,13 +677,52 @@
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
+    function loadScriptDynamic(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error('Failed loading ' + url));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function ensureBlazeFaceScriptLoaded() {
+      if (window.blazeface) return;
+      const candidates = [
+        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js',
+        'https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js'
+      ];
+      if (!window.tf) {
+        for (const u of candidates) {
+          try {
+            await loadScriptDynamic(u);
+            if (window.tf) break;
+          } catch (e) {}
+        }
+      }
+      const bfUrls = [
+        'https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js',
+        'https://unpkg.com/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js',
+        'https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface/dist/blazeface.min.js'
+      ];
+      for (const u of bfUrls) {
+        if (window.blazeface) break;
+        try {
+          await loadScriptDynamic(u);
+        } catch (e) {}
+      }
+      if (!window.blazeface) {
+        throw new Error("BlazeFace library failed to load. Check internet connection or ad-blocker/CSP.");
+      }
+    }
+
     /* Load TensorFlow.js BlazeFace Model */
     async function loadBlazeFaceModel() {
       if (blazeModel) return blazeModel;
-      if (!window.blazeface) {
-        throw new Error("BlazeFace library failed to load. Check internet connection.");
-      }
       $('telemetry-mesh').textContent = 'LOADING BLAZEFACE…';
+      await ensureBlazeFaceScriptLoaded();
       if (window.tf && tf.ready) {
         await tf.ready();
       }
@@ -695,7 +737,7 @@
       video.classList.add('mirror'); overlay.classList.add('mirror');
 
       const constraints = [
-        { video: { facingMode: { exact: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: { exact: 'user' }, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30 } }, audio: false },
         { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
         { video: { facingMode: 'user' }, audio: false },
         { video: true, audio: false }
@@ -762,6 +804,13 @@
       return arr.map(v => (Number(v) || 0) / mag);
     }
 
+    const CROP_SIZE = 64;
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = CROP_SIZE;
+    cropCanvas.height = CROP_SIZE;
+    const c2d = cropCanvas.getContext('2d', { willReadFrequently: true });
+    const lumaBuffer = new Float32Array(CROP_SIZE * CROP_SIZE);
+
     function extractBlazeFaceSignatureFromPrediction(videoEl, pred) {
       const [x1, y1] = pred.topLeft;
       const [x2, y2] = pred.bottomRight;
@@ -777,7 +826,7 @@
       const rEar = landmarks[4];
       const lEar = landmarks[5];
 
-      // 1. Scale- and translation-invariant 6-landmark facial geometry ratios (18 features)
+      // 1. Scale- and translation-invariant 6-landmark facial geometry ratios
       const eyeDx = lEye[0] - rEye[0];
       const eyeDy = lEye[1] - rEye[1];
       const eyeDist = Math.hypot(eyeDx, eyeDy) || 1;
@@ -815,32 +864,26 @@
         eyeDist / bw
       ];
 
-      // 2. Roll-aligned cropped facial texture & gradient descriptor around detected BlazeFace box (100 features)
-      const size = 64;
-      const cropCanvas = document.createElement('canvas');
-      cropCanvas.width = size;
-      cropCanvas.height = size;
-      const c2d = cropCanvas.getContext('2d', { willReadFrequently: true });
-
+      // 2. Roll-aligned cropped facial texture & gradient descriptor around detected BlazeFace box
       const faceCenterX = (x1 + x2) / 2;
       const faceCenterY = (y1 + y2) / 2;
       const cropScale = Math.max(bw, bh) * 0.92;
 
       c2d.save();
-      c2d.translate(size / 2, size / 2);
+      c2d.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+      c2d.translate(CROP_SIZE / 2, CROP_SIZE / 2);
       c2d.rotate(-rollAngle);
-      c2d.scale(size / cropScale, size / cropScale);
+      c2d.scale(CROP_SIZE / cropScale, CROP_SIZE / cropScale);
       c2d.drawImage(videoEl, -faceCenterX, -faceCenterY);
       c2d.restore();
 
-      const imgData = c2d.getImageData(0, 0, size, size).data;
-      const luma = new Float32Array(size * size);
+      const imgData = c2d.getImageData(0, 0, CROP_SIZE, CROP_SIZE).data;
       let sum = 0, sqSum = 0;
-      const n = size * size;
+      const n = CROP_SIZE * CROP_SIZE;
 
       for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
         const yVal = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-        luma[p] = yVal;
+        lumaBuffer[p] = yVal;
         sum += yVal;
         sqSum += yVal * yVal;
       }
@@ -849,40 +892,44 @@
       const std = Math.sqrt(Math.max(1, (sqSum / n) - mean * mean));
 
       // 8x8 normalized luma patches (64 features)
-      const textureFeatures = [];
+      const textureFeatures = new Array(64);
       const grid = 8;
-      const cell = size / grid;
+      const cell = CROP_SIZE / grid;
+      let tIdx = 0;
       for (let gy = 0; gy < grid; gy++) {
         for (let gx = 0; gx < grid; gx++) {
           let bSum = 0, cnt = 0;
           for (let y = gy * cell; y < (gy + 1) * cell; y++) {
+            const rowOff = y * CROP_SIZE;
             for (let x = gx * cell; x < (gx + 1) * cell; x++) {
-              bSum += luma[y * size + x];
+              bSum += lumaBuffer[rowOff + x];
               cnt++;
             }
           }
-          textureFeatures.push(((bSum / cnt) - mean) / std);
+          textureFeatures[tIdx++] = ((bSum / cnt) - mean) / std;
         }
       }
 
       // 6x6 facial edge/contour gradients (36 features)
-      const edgeFeatures = [];
+      const edgeFeatures = new Array(36);
       const eGrid = 6;
-      const eCell = size / eGrid;
+      const eCell = CROP_SIZE / eGrid;
+      let eIdx = 0;
       for (let ey = 0; ey < eGrid; ey++) {
         for (let ex = 0; ex < eGrid; ex++) {
           let gSum = 0, cnt = 0;
-          const ys = Math.max(1, Math.floor(ey * eCell)), ye = Math.min(size - 1, Math.floor((ey + 1) * eCell));
-          const xs = Math.max(1, Math.floor(ex * eCell)), xe = Math.min(size - 1, Math.floor((ex + 1) * eCell));
+          const ys = Math.max(1, Math.floor(ey * eCell)), ye = Math.min(CROP_SIZE - 1, Math.floor((ey + 1) * eCell));
+          const xs = Math.max(1, Math.floor(ex * eCell)), xe = Math.min(CROP_SIZE - 1, Math.floor((ex + 1) * eCell));
           for (let y = ys; y < ye; y++) {
+            const rowOff = y * CROP_SIZE;
             for (let x = xs; x < xe; x++) {
-              const dx = luma[y * size + (x + 1)] - luma[y * size + (x - 1)];
-              const dy = luma[(y + 1) * size + x] - luma[(y - 1) * size + x];
+              const dx = lumaBuffer[rowOff + (x + 1)] - lumaBuffer[rowOff + (x - 1)];
+              const dy = lumaBuffer[(y + 1) * CROP_SIZE + x] - lumaBuffer[(y - 1) * CROP_SIZE + x];
               gSum += Math.hypot(dx, dy);
               cnt++;
             }
           }
-          edgeFeatures.push((gSum / (cnt || 1)) / std);
+          edgeFeatures[eIdx++] = (gSum / (cnt || 1)) / std;
         }
       }
 
@@ -897,32 +944,30 @@
       }
 
       const model = await loadBlazeFaceModel();
-      const samples = [];
+      // Fast path: if live tracker already has a fresh BlazeFace lock (<180ms old), use it + 1 confirmation frame
+      const hasFreshLock = latestBlazeFace && (performance.now() - lastTrackTime < 180);
 
-      // Capture 3 rapid BlazeFace frames for stability
-      for (let i = 0; i < 3; i++) {
-        const predictions = await model.estimateFaces(videoEl, false);
-        if (!predictions || predictions.length === 0) {
-          throw new Error("BlazeFace could not detect a face. Face the camera clearly.");
+      if (hasFreshLock) {
+        const [sigA, predsB] = await Promise.all([
+          Promise.resolve(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace)),
+          model.estimateFaces(videoEl, false)
+        ]);
+        if (!predsB || predsB.length === 0) {
+          return sigA;
         }
-        const pred = predictions[0];
-        latestBlazeFace = pred;
-        samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, pred));
-        if (i < 2) await sleep(65);
+        latestBlazeFace = predsB[0];
+        const sigB = extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace);
+        const avg = new Array(sigA.length);
+        for (let d = 0; d < sigA.length; d++) avg[d] = (sigA[d] + sigB[d]) * 0.5;
+        return l2Normalize(avg);
       }
 
-      const dim = samples[0].length;
-      const avg = new Array(dim).fill(0);
-      for (let s = 0; s < samples.length; s++) {
-        for (let d = 0; d < dim; d++) {
-          avg[d] += samples[s][d];
-        }
+      const predictions = await model.estimateFaces(videoEl, false);
+      if (!predictions || predictions.length === 0) {
+        throw new Error("BlazeFace could not detect a face. Face the camera clearly.");
       }
-      for (let d = 0; d < dim; d++) {
-        avg[d] /= samples.length;
-      }
-
-      return l2Normalize(avg);
+      latestBlazeFace = predictions[0];
+      return extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace);
     }
 
     function parseSignature(raw) {
@@ -959,16 +1004,32 @@
     let lastTrackTime = 0;
     let isTrackingBusy = false;
 
+    let cachedPersonnel = null;
+    let lastPersonnelSync = 0;
+
+    async function getPersonnelCached(forceRefresh = false) {
+      if (!supabaseClient) return [];
+      const now = performance.now();
+      if (!forceRefresh && cachedPersonnel && (now - lastPersonnelSync < 15000)) {
+        return cachedPersonnel;
+      }
+      const { data, error } = await supabaseClient.from('enrolled_personnel').select('*');
+      if (error) throw error;
+      cachedPersonnel = data || [];
+      lastPersonnelSync = now;
+      return cachedPersonnel;
+    }
+
     async function updateLiveBlazeFace() {
       if (!isCameraActive || !blazeModel || isTrackingBusy) return;
       const now = performance.now();
-      if (now - lastTrackTime < 110) return;
-      lastTrackTime = now;
+      if (now - lastTrackTime < 65) return;
       isTrackingBusy = true;
 
       try {
         const preds = await blazeModel.estimateFaces(video, false);
         latestBlazeFace = (preds && preds.length > 0) ? preds[0] : null;
+        lastTrackTime = performance.now();
       } catch (e) {
         latestBlazeFace = null;
       } finally {
@@ -1096,6 +1157,7 @@
 
         $('enroll-name').value = '';
         $('enroll-id').value = '';
+        cachedPersonnel = null;
         say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
         fetchPersonnel();
       } catch (e) {
@@ -1115,13 +1177,10 @@
 
       try {
         say(`Scanning BlazeFace features for ${actionType} (${shift})…`);
-        const currentSig = await captureBlazeFaceSignature(video);
-
-        const { data: personnel, error } = await supabaseClient
-          .from('enrolled_personnel')
-          .select('*');
-
-        if (error) throw error;
+        const [currentSig, personnel] = await Promise.all([
+          captureBlazeFaceSignature(video),
+          getPersonnelCached(false)
+        ]);
         if (!personnel || personnel.length === 0) {
           say('Access Denied: No personnel enrolled in cloud.', 'bad');
           return;
