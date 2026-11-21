@@ -10,11 +10,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- TensorFlow.js & BlazeFace CDN (with jsDelivr + unpkg fallback) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"
-          onerror="this.onerror=null;this.src='https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js';"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"
-          onerror="this.onerror=null;this.src='https://unpkg.com/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js';"></script>
+  <!-- Face-API (@vladmandic/face-api) for 128D Face Embeddings -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"
+          onerror="this.onerror=null;this.src='https://unpkg.com/@vladmandic/face-api@1.7.13/dist/face-api.js';"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -133,7 +131,7 @@
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
-            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">BlazeFace Keypoint Biometrics</p>
+            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Face-API 128D Embedding Biometrics</p>
           </div>
         </div>
         
@@ -180,13 +178,13 @@
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
               <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                BLAZEFACE ENGINE READY
+                FACE-API 128D READY
               </span>
             </div>
 
             <!-- Camera Action Floating Controls -->
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" title="Toggle BlazeFace Overlay" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+              <button id="btn-mesh-toggle" title="Toggle Face Detection Overlay" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
                 <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
               </button>
               <button id="btn-start-cam" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
@@ -288,10 +286,10 @@
               <!-- Sensitivity Slider -->
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
-                  <span class="text-[11px] sm:text-xs text-gray-400">Match Accuracy Threshold</span>
-                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.78</span>
+                  <span class="text-[11px] sm:text-xs text-gray-400">Max Distance Threshold (Lower = Stricter)</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.52</span>
                 </div>
-                <input type="range" id="thr" min="0.6" max="0.95" step="0.01" value="0.78" 
+                <input type="range" id="thr" min="0.35" max="0.75" step="0.01" value="0.52" 
                        class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
               </div>
             </div>
@@ -330,7 +328,7 @@
 
     <!-- Footer -->
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • BlazeFace Biometrics
+      Facia-tendance Terminal • Supabase Cloud Synced • 128D Face Embeddings
     </footer>
 
   </div>
@@ -379,8 +377,414 @@
     let mediaStream = null;
     let isCameraActive = false;
     let showMesh = true;
-    let blazeModel = null;
-    let latestBlazeFace = null;
+    let faceApiReady = false;
+    let latestDetection = null;
+
+    const MODEL_URLS = [
+      'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
+      'https://unpkg.com/@vladmandic/face-api@1.7.13/model'
+    ];
+
+    function loadScriptDynamic(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error('Failed loading ' + url));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function ensureFaceApiLoaded() {
+      if (window.faceapi) return true;
+      const urls = [
+        'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js',
+        'https://unpkg.com/@vladmandic/face-api@1.7.13/dist/face-api.js'
+      ];
+      for (const u of urls) {
+        try {
+          await loadScriptDynamic(u);
+          if (window.faceapi) return true;
+        } catch (e) {}
+      }
+      return false;
+    }
+
+    async function loadFaceApiModels() {
+      if (faceApiReady && window.faceapi) return window.faceapi;
+      $('telemetry-mesh').textContent = 'LOADING 128D MODELS…';
+      const loaded = await ensureFaceApiLoaded();
+      if (!loaded || !window.faceapi) {
+        throw new Error('Failed to load face-api.js library.');
+      }
+
+      if (faceapi.tf && faceapi.tf.ready) {
+        await faceapi.tf.ready();
+      }
+
+      let lastErr = null;
+      for (const baseUrl of MODEL_URLS) {
+        try {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl),
+            faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl),
+            faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl)
+          ]);
+          faceApiReady = true;
+          $('telemetry-mesh').textContent = '128D EMBEDDING READY';
+          return faceapi;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Failed to load face-api model weights.');
+    }
+
+    function getDetectorOptions() {
+      return new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,
+        scoreThreshold: 0.5
+      });
+    }
+
+    /* Camera Initializer (Front Camera Only) */
+    async function initCamera() {
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      video.classList.add('mirror'); overlay.classList.add('mirror');
+
+      const constraints = [
+        { video: { facingMode: { exact: 'user' }, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30 } }, audio: false },
+        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: { facingMode: 'user' }, audio: false },
+        { video: true, audio: false }
+      ];
+
+      let stream = null;
+      for (const c of constraints) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(c);
+          if (stream) break;
+        } catch (e) {}
+      }
+
+      if (!stream) throw new Error("Camera permission denied.");
+
+      mediaStream = stream;
+      video.srcObject = mediaStream;
+      await new Promise(res => {
+        if (video.readyState >= 2) res();
+        else video.onloadedmetadata = res;
+      });
+      await video.play();
+
+      overlay.width = video.videoWidth || 640;
+      overlay.height = video.videoHeight || 480;
+
+      isCameraActive = true;
+      $('cam-btn-text').textContent = "Active";
+      $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
+
+      await loadFaceApiModels();
+    }
+
+    $('btn-start-cam').onclick = async () => {
+      try {
+        say('Initializing Front Camera & 128D Face Model…');
+        await initCamera();
+        say('128D Face Model Active. Center your face in the frame.', '');
+        $('btn-checkin').disabled = false;
+        $('btn-checkout').disabled = false;
+        $('btn-enroll').disabled = false;
+      } catch (err) {
+        say('Camera Error: ' + err.message, 'bad');
+      }
+    };
+
+    $('btn-mesh-toggle').onclick = () => {
+      showMesh = !showMesh;
+    };
+
+    /* ========================================================
+       128D FACE EMBEDDING ENGINE (@vladmandic/face-api)
+       ======================================================== */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function captureFaceEmbedding(videoEl) {
+      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
+        throw new Error("Camera stream not active or ready.");
+      }
+      const api = await loadFaceApiModels();
+      const opts = getDetectorOptions();
+      const samples = [];
+
+      for (let s = 0; s < 3; s++) {
+        const result = await api
+          .detectSingleFace(videoEl, opts)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (result && result.descriptor && result.descriptor.length === 128) {
+          latestDetection = result;
+          samples.push(Array.from(result.descriptor));
+        }
+        if (s < 2) await sleep(65);
+      }
+
+      if (!samples.length) {
+        throw new Error("No clear face detected. Align your face directly with the camera.");
+      }
+
+      const avg = new Array(128).fill(0);
+      for (const vec of samples) {
+        for (let d = 0; d < 128; d++) {
+          avg[d] += vec[d] / samples.length;
+        }
+      }
+      return avg;
+    }
+
+    function parseDescriptor(raw) {
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw.map(Number);
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed.map(Number);
+        } catch (e) {}
+      }
+      if (typeof raw === 'object') {
+        return Object.values(raw).map(Number);
+      }
+      return [];
+    }
+
+    function euclideanDistance(descA, descB) {
+      const a = parseDescriptor(descA);
+      const b = parseDescriptor(descB);
+      if (!a.length || !b.length || a.length !== b.length) return Infinity;
+      let sumSq = 0;
+      for (let i = 0; i < a.length; i++) {
+        const diff = a[i] - b[i];
+        sumSq += diff * diff;
+      }
+      return Math.sqrt(sumSq);
+    }
+
+    function distanceToConfidencePercent(dist, threshold) {
+      const ratio = Math.max(0, Math.min(1, 1 - (dist / Math.max(0.85, threshold * 1.45))));
+      return (ratio * 100).toFixed(1);
+    }
+
+    /* Live Face Detection & 68-Landmark Overlay Loop */
+    let meshPhase = 0;
+    let lastTrackTime = 0;
+    let isTrackingBusy = false;
+
+    let cachedPersonnel = null;
+    let lastPersonnelSync = 0;
+
+    async function getPersonnelCached(forceRefresh = false) {
+      if (!supabaseClient) return [];
+      const now = performance.now();
+      if (!forceRefresh && cachedPersonnel && (now - lastPersonnelSync < 15000)) {
+        return cachedPersonnel;
+      }
+      const { data, error } = await supabaseClient.from('enrolled_personnel').select('*');
+      if (error) throw error;
+      cachedPersonnel = data || [];
+      lastPersonnelSync = now;
+      return cachedPersonnel;
+    }
+
+    async function updateLiveFace() {
+      if (!isCameraActive || !faceApiReady || !window.faceapi || isTrackingBusy) return;
+      const now = performance.now();
+      if (now - lastTrackTime < 110) return;
+      isTrackingBusy = true;
+
+      try {
+        const det = await faceapi
+          .detectSingleFace(video, getDetectorOptions())
+          .withFaceLandmarks();
+        latestDetection = det || null;
+        lastTrackTime = performance.now();
+      } catch (e) {
+        latestDetection = null;
+      } finally {
+        isTrackingBusy = false;
+      }
+    }
+
+    function drawOverlay() {
+      if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+        overlay.width = video.videoWidth || 640;
+        overlay.height = video.videoHeight || 480;
+      }
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      const vw = overlay.width;
+      const vh = overlay.height;
+      const cx = vw / 2;
+      const cy = vh / 2;
+
+      $('telemetry-dot').className = latestDetection
+        ? 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse'
+        : 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400';
+
+      $('telemetry-text').textContent = !isCameraActive
+        ? 'CAMERA STANDBY'
+        : latestDetection
+          ? 'FACE LOCKED (68 LANDMARKS)'
+          : 'SEARCHING FOR FACE…';
+
+      if (!showMesh) return;
+
+      meshPhase += 0.05;
+
+      if (latestDetection && latestDetection.detection) {
+        const { x, y, width: bw, height: bh } = latestDetection.detection.box;
+        const x2 = x + bw;
+        const y2 = y + bh;
+
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.9)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(x, y, bw, bh);
+
+        const bl = Math.min(18, bw * 0.18);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, y + bl); ctx.lineTo(x, y); ctx.lineTo(x + bl, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x2 - bl, y); ctx.lineTo(x2, y); ctx.lineTo(x2, y + bl); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y2 - bl); ctx.lineTo(x, y2); ctx.lineTo(x + bl, y2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x2 - bl, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - bl); ctx.stroke();
+
+        const pts = latestDetection.landmarks && latestDetection.landmarks.positions;
+        if (pts && pts.length) {
+          ctx.fillStyle = '#38bdf8';
+          for (let i = 0; i < pts.length; i++) {
+            ctx.beginPath();
+            ctx.arc(pts[i].x, pts[i].y, 2.0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        return;
+      }
+
+      const pulse = Math.sin(meshPhase) * 3;
+      const rw = (vw * 0.45) + pulse;
+      const rh = (vh * 0.48) + pulse;
+      const rx = cx - rw / 2;
+      const ry = cy - rh / 2;
+
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
+    }
+
+    function loop() {
+      if (isCameraActive) {
+        updateLiveFace();
+        drawOverlay();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    /* Enrollment Handler (Stores 128D Face Descriptor) */
+    $('btn-enroll').onclick = async () => {
+      if (!isAdminAuthenticated) return;
+      if (!supabaseClient) return alert('Supabase client not initialized.');
+
+      const name = $('enroll-name').value.trim();
+      const idNumber = $('enroll-id').value.trim();
+      const shift = $('enroll-shift').value;
+
+      if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
+      $('btn-enroll').disabled = true;
+
+      try {
+        say('Extracting 128D face embedding…');
+        const signature = await captureFaceEmbedding(video);
+
+        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
+          name,
+          id_number: idNumber,
+          shift,
+          signature
+        }]);
+
+        if (error) throw error;
+
+        $('enroll-name').value = '';
+        $('enroll-id').value = '';
+        cachedPersonnel = null;
+        say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
+        fetchPersonnel();
+      } catch (e) {
+        say('Enrollment Error: ' + e.message, 'bad');
+      } finally {
+        $('btn-enroll').disabled = false;
+      }
+    };
+
+    /* Attendance Logging Helper (Matches via 128D Euclidean Distance) */
+    async function handleAttendance(actionType) {
+      if (!supabaseClient) return alert('Supabase client not initialized.');
+
+      const shift = $('verify-shift').value;
+      $('btn-checkin').disabled = true;
+      $('btn-checkout').disabled = true;
+
+      try {
+        say(`Computing 128D embedding for ${actionType} (${shift})…`);
+        const [currentDesc, personnel] = await Promise.all([
+          captureFaceEmbedding(video),
+          getPersonnelCached(false)
+        ]);
+        if (!personnel || personnel.length === 0) {
+          say('Access Denied: No personnel enrolled in cloud.', 'bad');
+          return;
+        }
+
+        const maxThreshold = +$('thr').value;
+        let bestMatch = { person: null, distance: Infinity };
+
+        for (const p of personnel) {
+          const dist = euclideanDistance(currentDesc, p.signature);
+          if (dist < bestMatch.distance) {
+            bestMatch = { person: p, distance: dist };
+          }
+        }
+
+        if (bestMatch.person && bestMatch.distance <= maxThreshold) {
+          const person = bestMatch.person;
+          const matchPct = distanceToConfidencePercent(bestMatch.distance, maxThreshold);
+          await supabaseClient.from('attendance_logs').insert([{
+            name: person.name,
+            id_number: person.id_number,
+            shift: shift,
+            action_type: actionType,
+            similarity_score: Math.round(Number(matchPct)),
+            timestamp: new Date().toISOString()
+          }]);
+
+          say(`${actionType} Successful: ${person.name} (dist ${bestMatch.distance.toFixed(2)} • ${matchPct}%)`, 'ok');
+          fetchLogs();
+        } else {
+          const distLabel = Number.isFinite(bestMatch.distance) ? bestMatch.distance.toFixed(2) : 'N/A';
+          say(`Access Denied: Face Not Recognized (dist ${distLabel} > ${maxThreshold.toFixed(2)})`, 'bad');
+        }
+      } catch (e) {
+        say('Verification Error: ' + e.message, 'bad');
+      } finally {
+        if (isCameraActive) {
+          $('btn-checkin').disabled = false;
+          $('btn-checkout').disabled = false;
+        }
+      }
+    }
 
     // ========================================================
     // SUPABASE CONNECTION
@@ -521,7 +925,7 @@
         mediaStream = null;
       }
       isCameraActive = false;
-      latestBlazeFace = null;
+      latestDetection = null;
       $('cam-btn-text').textContent = 'Start';
       $('btn-start-cam').classList.replace('bg-emerald-600', 'bg-[#2563eb]');
       $('btn-checkin').disabled = true;
@@ -676,621 +1080,6 @@
       $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
     };
     $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
-
-    function loadScriptDynamic(url) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = url;
-        s.async = true;
-        s.onload = () => resolve(true);
-        s.onerror = () => reject(new Error('Failed loading ' + url));
-        document.head.appendChild(s);
-      });
-    }
-
-    let usingFallbackDetector = false;
-
-    function createFallbackFaceDetector() {
-      return {
-        isFallback: true,
-        async estimateFaces(videoEl) {
-          const vw = videoEl.videoWidth || 640;
-          const vh = videoEl.videoHeight || 480;
-          if (!vw || !vh) return [];
-          // Center-weighted face region + synthetic 6-point landmarks for instant fast scanning
-          const bw = vw * 0.44;
-          const bh = vh * 0.56;
-          const x1 = (vw - bw) / 2;
-          const y1 = (vh - bh) / 2;
-          const x2 = x1 + bw;
-          const y2 = y1 + bh;
-          const cx = vw / 2;
-          const eyeY = y1 + bh * 0.38;
-          const eyeSpan = bw * 0.22;
-          return [{
-            topLeft: [x1, y1],
-            bottomRight: [x2, y2],
-            landmarks: [
-              [cx - eyeSpan, eyeY],
-              [cx + eyeSpan, eyeY],
-              [cx, y1 + bh * 0.56],
-              [cx, y1 + bh * 0.74],
-              [x1 + bw * 0.08, eyeY + bh * 0.04],
-              [x2 - bw * 0.08, eyeY + bh * 0.04]
-            ]
-          }];
-        }
-      };
-    }
-
-    async function ensureBlazeFaceScriptLoaded() {
-      if (window.blazeface) return true;
-      const tfUrls = [
-        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js',
-        'https://unpkg.com/@tensorflow/tfjs@3.21.0/dist/tf.min.js'
-      ];
-      if (!window.tf) {
-        for (const u of tfUrls) {
-          try {
-            await loadScriptDynamic(u);
-            if (window.tf) break;
-          } catch (e) {}
-        }
-      }
-      const bfUrls = [
-        'https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js',
-        'https://unpkg.com/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js'
-      ];
-      for (const u of bfUrls) {
-        if (window.blazeface) break;
-        try {
-          await loadScriptDynamic(u);
-        } catch (e) {}
-      }
-      return !!window.blazeface;
-    }
-
-    /* Load TensorFlow.js BlazeFace Model with automatic fallback */
-    async function loadBlazeFaceModel() {
-      if (blazeModel) return blazeModel;
-      $('telemetry-mesh').textContent = 'LOADING BLAZEFACE…';
-      try {
-        const loaded = await ensureBlazeFaceScriptLoaded();
-        if (loaded && window.blazeface) {
-          if (window.tf && tf.ready) await tf.ready();
-          blazeModel = await blazeface.load({ maxFaces: 1, scoreThreshold: 0.75 });
-          usingFallbackDetector = false;
-          $('telemetry-mesh').textContent = 'BLAZEFACE 6-KEYPOINT READY';
-          return blazeModel;
-        }
-      } catch (e) {
-        console.warn('BlazeFace CDN fallback engaged:', e);
-      }
-      usingFallbackDetector = true;
-      blazeModel = createFallbackFaceDetector();
-      $('telemetry-mesh').textContent = 'FAST LOCAL SCANNER READY';
-      return blazeModel;
-    }
-
-    /* Camera Initializer (Front Camera Only) */
-    async function initCamera() {
-      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-      video.classList.add('mirror'); overlay.classList.add('mirror');
-
-      const constraints = [
-        { video: { facingMode: { exact: 'user' }, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30 } }, audio: false },
-        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
-        { video: { facingMode: 'user' }, audio: false },
-        { video: true, audio: false }
-      ];
-
-      let stream = null;
-      for (const c of constraints) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(c);
-          if (stream) break;
-        } catch (e) {}
-      }
-
-      if (!stream) throw new Error("Camera permission denied.");
-
-      mediaStream = stream;
-      video.srcObject = mediaStream;
-      await new Promise(res => {
-        if (video.readyState >= 2) res();
-        else video.onloadedmetadata = res;
-      });
-      await video.play();
-
-      overlay.width = video.videoWidth || 640;
-      overlay.height = video.videoHeight || 480;
-
-      isCameraActive = true;
-      $('cam-btn-text').textContent = "Active";
-      $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
-
-      await loadBlazeFaceModel();
-    }
-
-    $('btn-start-cam').onclick = async () => {
-      try {
-        say('Initializing Front Camera & BlazeFace…');
-        await initCamera();
-        say('BlazeFace Active. Center your face in the frame.', '');
-        $('btn-checkin').disabled = false;
-        $('btn-checkout').disabled = false;
-        $('btn-enroll').disabled = false;
-      } catch (err) {
-        say('Camera Error: ' + err.message, 'bad');
-      }
-    };
-
-    $('btn-mesh-toggle').onclick = () => {
-      showMesh = !showMesh;
-    };
-
-    /* ========================================================
-       BLAZEFACE FACIAL FEATURE & EYE-ALIGNED SIGNATURE ENGINE
-       Uses BlazeFace bounding box + 6 facial landmarks:
-       [0] Right Eye, [1] Left Eye, [2] Nose Tip,
-       [3] Mouth Center, [4] Right Ear Tragion, [5] Left Ear Tragion
-       ======================================================== */
-    function l2Normalize(arr) {
-      let sumSq = 0;
-      for (let i = 0; i < arr.length; i++) {
-        const v = Number(arr[i]) || 0;
-        sumSq += v * v;
-      }
-      const mag = Math.sqrt(sumSq) || 1;
-      return arr.map(v => (Number(v) || 0) / mag);
-    }
-
-    const CROP_SIZE = 96;
-    const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = CROP_SIZE;
-    cropCanvas.height = CROP_SIZE;
-    const c2d = cropCanvas.getContext('2d', { willReadFrequently: true });
-    const lumaBuffer = new Float32Array(CROP_SIZE * CROP_SIZE);
-    const localNormBuffer = new Float32Array(CROP_SIZE * CROP_SIZE);
-
-    function extractBlazeFaceSignatureFromPrediction(videoEl, pred) {
-      const [x1, y1] = pred.topLeft;
-      const [x2, y2] = pred.bottomRight;
-      const landmarks = pred.landmarks; // 6 keypoints: [rightEye, leftEye, nose, mouth, rightEar, leftEar]
-
-      const bw = Math.max(1, x2 - x1);
-      const bh = Math.max(1, y2 - y1);
-
-      const rEye = landmarks[0];
-      const lEye = landmarks[1];
-      const nose = landmarks[2];
-      const mouth = landmarks[3];
-      const rEar = landmarks[4];
-      const lEar = landmarks[5];
-
-      // 1. Scale-, rotation-, and translation-invariant 6-landmark facial geometry ratios
-      const eyeDx = lEye[0] - rEye[0];
-      const eyeDy = lEye[1] - rEye[1];
-      const eyeDist = Math.hypot(eyeDx, eyeDy) || 1;
-      const eyeMidX = (rEye[0] + lEye[0]) / 2;
-      const eyeMidY = (rEye[1] + lEye[1]) / 2;
-      const rollAngle = Math.atan2(eyeDy, eyeDx);
-      const cosA = Math.cos(-rollAngle);
-      const sinA = Math.sin(-rollAngle);
-
-      const normPt = (pt) => {
-        const dx = pt[0] - eyeMidX;
-        const dy = pt[1] - eyeMidY;
-        return [
-          (dx * cosA - dy * sinA) / eyeDist,
-          (dx * sinA + dy * cosA) / eyeDist
-        ];
-      };
-
-      const nREye = normPt(rEye);
-      const nLEye = normPt(lEye);
-      const nNose = normPt(nose);
-      const nMouth = normPt(mouth);
-      const nREar = normPt(rEar);
-      const nLEar = normPt(lEar);
-
-      const noseToMouth = Math.hypot(nNose[0] - nMouth[0], nNose[1] - nMouth[1]);
-      const eyeToNose = Math.hypot(nNose[0], nNose[1]);
-      const eyeToMouth = Math.hypot(nMouth[0], nMouth[1]);
-      const earSpan = Math.hypot(nLEar[0] - nREar[0], nLEar[1] - nREar[1]);
-      const leftEyeToNose = Math.hypot(nLEye[0] - nNose[0], nLEye[1] - nNose[1]);
-      const rightEyeToNose = Math.hypot(nREye[0] - nNose[0], nREye[1] - nNose[1]);
-      const faceAspect = bw / bh;
-
-      const geoFeatures = [
-        ...nREye, ...nLEye, ...nNose, ...nMouth, ...nREar, ...nLEar,
-        noseToMouth, eyeToNose, eyeToMouth, earSpan, faceAspect,
-        eyeDist / bw, leftEyeToNose / (rightEyeToNose || 1)
-      ];
-
-      // 2. Eye-anchored, roll-aligned facial crop for consistent framing across distances
-      const anchorX = eyeMidX;
-      const anchorY = eyeMidY + eyeDist * 0.45;
-      const cropScale = eyeDist * 3.1;
-
-      c2d.save();
-      c2d.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
-      c2d.translate(CROP_SIZE / 2, CROP_SIZE / 2);
-      c2d.rotate(-rollAngle);
-      c2d.scale(CROP_SIZE / cropScale, CROP_SIZE / cropScale);
-      c2d.drawImage(videoEl, -anchorX, -anchorY);
-      c2d.restore();
-
-      const imgData = c2d.getImageData(0, 0, CROP_SIZE, CROP_SIZE).data;
-      const n = CROP_SIZE * CROP_SIZE;
-
-      for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
-        lumaBuffer[p] = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-      }
-
-      // Difference-of-local-box lighting normalization (reduces directional shadows/lighting drift)
-      const rad = 6;
-      for (let y = 0; y < CROP_SIZE; y++) {
-        const y0 = Math.max(0, y - rad), y1 = Math.min(CROP_SIZE - 1, y + rad);
-        for (let x = 0; x < CROP_SIZE; x++) {
-          const x0 = Math.max(0, x - rad), x1 = Math.min(CROP_SIZE - 1, x + rad);
-          let bSum = 0, cnt = 0;
-          for (let yy = y0; yy <= y1; yy++) {
-            const off = yy * CROP_SIZE;
-            for (let xx = x0; xx <= x1; xx++) {
-              bSum += lumaBuffer[off + xx];
-              cnt++;
-            }
-          }
-          localNormBuffer[y * CROP_SIZE + x] = lumaBuffer[y * CROP_SIZE + x] - (bSum / (cnt || 1));
-        }
-      }
-
-      let lSum = 0, lSq = 0;
-      for (let p = 0; p < n; p++) {
-        const v = localNormBuffer[p];
-        lSum += v;
-        lSq += v * v;
-      }
-      const lMean = lSum / n;
-      const lStd = Math.sqrt(Math.max(1, (lSq / n) - lMean * lMean));
-
-      // 12x12 local-contrast facial grid (144 features)
-      const textureFeatures = new Array(144);
-      const grid = 12;
-      const cell = CROP_SIZE / grid;
-      let tIdx = 0;
-      for (let gy = 0; gy < grid; gy++) {
-        for (let gx = 0; gx < grid; gx++) {
-          let bSum = 0, cnt = 0;
-          for (let y = gy * cell; y < (gy + 1) * cell; y++) {
-            const rowOff = y * CROP_SIZE;
-            for (let x = gx * cell; x < (gx + 1) * cell; x++) {
-              bSum += localNormBuffer[rowOff + x];
-              cnt++;
-            }
-          }
-          textureFeatures[tIdx++] = ((bSum / cnt) - lMean) / lStd;
-        }
-      }
-
-      // 8x8 oriented gradient histogram (4 direction bins per cell = 256 features)
-      const gGrid = 8;
-      const gCell = CROP_SIZE / gGrid;
-      const hogFeatures = new Array(gGrid * gGrid * 4).fill(0);
-      for (let gy = 0; gy < gGrid; gy++) {
-        for (let gx = 0; gx < gGrid; gx++) {
-          const ys = Math.max(1, Math.floor(gy * gCell));
-          const ye = Math.min(CROP_SIZE - 2, Math.floor((gy + 1) * gCell));
-          const xs = Math.max(1, Math.floor(gx * gCell));
-          const xe = Math.min(CROP_SIZE - 2, Math.floor((gx + 1) * gCell));
-          const baseIdx = (gy * gGrid + gx) * 4;
-          for (let y = ys; y <= ye; y++) {
-            const rowOff = y * CROP_SIZE;
-            for (let x = xs; x <= xe; x++) {
-              const dx = localNormBuffer[rowOff + (x + 1)] - localNormBuffer[rowOff + (x - 1)];
-              const dy = localNormBuffer[(y + 1) * CROP_SIZE + x] - localNormBuffer[(y - 1) * CROP_SIZE + x];
-              const mag = Math.hypot(dx, dy);
-              const ang = Math.atan2(Math.abs(dy), Math.abs(dx)); // [0, pi/2]
-              const bin = Math.min(3, Math.floor((ang / (Math.PI / 2)) * 4));
-              hogFeatures[baseIdx + bin] += mag;
-            }
-          }
-          for (let b = 0; b < 4; b++) {
-            hogFeatures[baseIdx + b] /= ((lStd * ((ye - ys + 1) * (xe - xs + 1))) || 1);
-          }
-        }
-      }
-
-      const weightedGeo = geoFeatures.map(v => v * 1.6);
-      const weightedTex = textureFeatures.map(v => v * 1.15);
-      return l2Normalize([...weightedGeo, ...weightedTex, ...hogFeatures]);
-    }
-
-    async function captureBlazeFaceSignature(videoEl) {
-      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
-        throw new Error("Camera stream not active or ready.");
-      }
-
-      const model = await loadBlazeFaceModel();
-      const samples = [];
-
-      // Sample 3 frames with short pacing so temporary motion/blink doesn't skew the scan
-      for (let s = 0; s < 3; s++) {
-        const preds = await model.estimateFaces(videoEl, false);
-        if (preds && preds.length > 0) {
-          latestBlazeFace = preds[0];
-          lastTrackTime = performance.now();
-          samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace));
-        } else if (latestBlazeFace && (performance.now() - lastTrackTime < 220)) {
-          samples.push(extractBlazeFaceSignatureFromPrediction(videoEl, latestBlazeFace));
-        }
-        if (s < 2) await sleep(55);
-      }
-
-      if (!samples.length) {
-        throw new Error("Could not detect a face clearly. Center your face and try again.");
-      }
-
-      const dim = samples[0].length;
-      const avg = new Array(dim).fill(0);
-      for (const sig of samples) {
-        for (let d = 0; d < dim; d++) avg[d] += sig[d] / samples.length;
-      }
-      return l2Normalize(avg);
-    }
-
-    function parseSignature(raw) {
-      if (!raw) return [];
-      if (Array.isArray(raw)) return raw.map(Number);
-      if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed.map(Number);
-        } catch (e) {}
-      }
-      if (typeof raw === 'object') {
-        return Object.values(raw).map(Number);
-      }
-      return [];
-    }
-
-    function compareBlazeFaceSignatures(sigA, sigB) {
-      const a = parseSignature(sigA);
-      const b = parseSignature(sigB);
-      if (!a.length || !b.length || a.length !== b.length) return 0;
-
-      const normA = l2Normalize(a);
-      const normB = l2Normalize(b);
-      let dot = 0;
-      for (let i = 0; i < normA.length; i++) {
-        dot += normA[i] * normB[i];
-      }
-      return Math.max(0, Math.min(1, dot));
-    }
-
-    /* Live BlazeFace Detection & 6-Keypoint Overlay Loop */
-    let meshPhase = 0;
-    let lastTrackTime = 0;
-    let isTrackingBusy = false;
-
-    let cachedPersonnel = null;
-    let lastPersonnelSync = 0;
-
-    async function getPersonnelCached(forceRefresh = false) {
-      if (!supabaseClient) return [];
-      const now = performance.now();
-      if (!forceRefresh && cachedPersonnel && (now - lastPersonnelSync < 15000)) {
-        return cachedPersonnel;
-      }
-      const { data, error } = await supabaseClient.from('enrolled_personnel').select('*');
-      if (error) throw error;
-      cachedPersonnel = data || [];
-      lastPersonnelSync = now;
-      return cachedPersonnel;
-    }
-
-    async function updateLiveBlazeFace() {
-      if (!isCameraActive || !blazeModel || isTrackingBusy) return;
-      const now = performance.now();
-      if (now - lastTrackTime < 65) return;
-      isTrackingBusy = true;
-
-      try {
-        const preds = await blazeModel.estimateFaces(video, false);
-        latestBlazeFace = (preds && preds.length > 0) ? preds[0] : null;
-        lastTrackTime = performance.now();
-      } catch (e) {
-        latestBlazeFace = null;
-      } finally {
-        isTrackingBusy = false;
-      }
-    }
-
-    function drawOverlay() {
-      if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-        overlay.width = video.videoWidth || 640;
-        overlay.height = video.videoHeight || 480;
-      }
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-      const vw = overlay.width;
-      const vh = overlay.height;
-      const cx = vw / 2;
-      const cy = vh / 2;
-
-      $('telemetry-dot').className = latestBlazeFace
-        ? 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse'
-        : 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400';
-
-      $('telemetry-text').textContent = !isCameraActive
-        ? 'CAMERA STANDBY'
-        : latestBlazeFace
-          ? 'BLAZEFACE LOCKED (6 KEYPOINTS)'
-          : 'SEARCHING FOR FACE…';
-
-      if (!showMesh) return;
-
-      meshPhase += 0.05;
-
-      // Draw real BlazeFace bounding box + 6 facial landmarks when locked
-      if (latestBlazeFace) {
-        const [x1, y1] = latestBlazeFace.topLeft;
-        const [x2, y2] = latestBlazeFace.bottomRight;
-        const bw = x2 - x1;
-        const bh = y2 - y1;
-
-        ctx.strokeStyle = 'rgba(52, 211, 153, 0.9)';
-        ctx.lineWidth = 2.5;
-        ctx.strokeRect(x1, y1, bw, bh);
-
-        // Corner brackets on BlazeFace box
-        const bl = Math.min(18, bw * 0.18);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(x1, y1 + bl); ctx.lineTo(x1, y1); ctx.lineTo(x1 + bl, y1); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x2 - bl, y1); ctx.lineTo(x2, y1); ctx.lineTo(x2, y1 + bl); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x1, y2 - bl); ctx.lineTo(x1, y2); ctx.lineTo(x1 + bl, y2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x2 - bl, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - bl); ctx.stroke();
-
-        // Draw 6 BlazeFace facial keypoints (eyes, nose, mouth, ears) + connecting mesh
-        const pts = latestBlazeFace.landmarks;
-        if (pts && pts.length >= 6) {
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-          ctx.lineWidth = 1.2;
-          const pairs = [[0, 1], [0, 2], [1, 2], [2, 3], [0, 4], [1, 5], [4, 3], [5, 3]];
-          for (const [i, j] of pairs) {
-            ctx.beginPath();
-            ctx.moveTo(pts[i][0], pts[i][1]);
-            ctx.lineTo(pts[j][0], pts[j][1]);
-            ctx.stroke();
-          }
-
-          for (let i = 0; i < pts.length; i++) {
-            ctx.fillStyle = '#38bdf8';
-            ctx.beginPath();
-            ctx.arc(pts[i][0], pts[i][1], 3.2, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        return;
-      }
-
-      // Standby alignment guide when no face is in frame yet
-      const pulse = Math.sin(meshPhase) * 3;
-      const rw = (vw * 0.45) + pulse;
-      const rh = (vh * 0.48) + pulse;
-      const rx = cx - rw / 2;
-      const ry = cy - rh / 2;
-
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(rx, ry, rw, rh);
-      ctx.setLineDash([]);
-    }
-
-    function loop() {
-      if (isCameraActive) {
-        updateLiveBlazeFace();
-        drawOverlay();
-      }
-      requestAnimationFrame(loop);
-    }
-
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-    /* Enrollment Handler (Stores BlazeFace Feature Signature) */
-    $('btn-enroll').onclick = async () => {
-      if (!isAdminAuthenticated) return;
-      if (!supabaseClient) return alert('Supabase client not initialized.');
-
-      const name = $('enroll-name').value.trim();
-      const idNumber = $('enroll-id').value.trim();
-      const shift = $('enroll-shift').value;
-
-      if (!name || !idNumber) return alert('Please provide both Employee Name and ID Number.');
-      $('btn-enroll').disabled = true;
-
-      try {
-        say('Capturing BlazeFace 6-keypoint signature…');
-        const signature = await captureBlazeFaceSignature(video);
-
-        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
-          name,
-          id_number: idNumber,
-          shift,
-          signature
-        }]);
-
-        if (error) throw error;
-
-        $('enroll-name').value = '';
-        $('enroll-id').value = '';
-        cachedPersonnel = null;
-        say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
-        fetchPersonnel();
-      } catch (e) {
-        say('Enrollment Error: ' + e.message, 'bad');
-      } finally {
-        $('btn-enroll').disabled = false;
-      }
-    };
-
-    /* Attendance Logging Helper (Matches via BlazeFace Signature) */
-    async function handleAttendance(actionType) {
-      if (!supabaseClient) return alert('Supabase client not initialized.');
-
-      const shift = $('verify-shift').value;
-      $('btn-checkin').disabled = true;
-      $('btn-checkout').disabled = true;
-
-      try {
-        say(`Scanning BlazeFace features for ${actionType} (${shift})…`);
-        const [currentSig, personnel] = await Promise.all([
-          captureBlazeFaceSignature(video),
-          getPersonnelCached(false)
-        ]);
-        if (!personnel || personnel.length === 0) {
-          say('Access Denied: No personnel enrolled in cloud.', 'bad');
-          return;
-        }
-
-        const threshold = +$('thr').value;
-        let bestMatch = { person: null, similarity: 0 };
-
-        for (const p of personnel) {
-          const similarity = compareBlazeFaceSignatures(currentSig, p.signature);
-          if (similarity > bestMatch.similarity) {
-            bestMatch = { person: p, similarity };
-          }
-        }
-
-        if (bestMatch.similarity >= threshold) {
-          const person = bestMatch.person;
-          await supabaseClient.from('attendance_logs').insert([{
-            name: person.name,
-            id_number: person.id_number,
-            shift: shift,
-            action_type: actionType,
-            similarity_score: Math.round(bestMatch.similarity * 100),
-            timestamp: new Date().toISOString()
-          }]);
-
-          say(`${actionType} Successful: ${person.name} (${(bestMatch.similarity * 100).toFixed(1)}%)`, 'ok');
-          fetchLogs();
-        } else {
-          say(`Access Denied: Face Not Recognized (${(bestMatch.similarity * 100).toFixed(1)}% < ${Math.round(threshold * 100)}%)`, 'bad');
-        }
-      } catch (e) {
-        say('Verification Error: ' + e.message, 'bad');
-      } finally {
-        if (isCameraActive) {
-          $('btn-checkin').disabled = false;
-          $('btn-checkout').disabled = false;
-        }
-      }
-    }
 
     $('btn-checkin').onclick = () => handleAttendance('Check-In');
     $('btn-checkout').onclick = () => handleAttendance('Check-Out');
