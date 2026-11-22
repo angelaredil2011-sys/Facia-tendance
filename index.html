@@ -385,13 +385,38 @@
       'https://unpkg.com/@vladmandic/face-api@1.7.13/model'
     ];
 
-    function loadScriptDynamic(url) {
+    let modelLoadPromise = null;
+
+    function loadScriptDynamic(url, timeoutMs = 6000) {
       return new Promise((resolve, reject) => {
+        const existing = Array.from(document.scripts).find(sc => sc.src === url);
+        if (existing && window.faceapi) return resolve(true);
+
         const s = document.createElement('script');
         s.src = url;
         s.async = true;
-        s.onload = () => resolve(true);
-        s.onerror = () => reject(new Error('Failed loading ' + url));
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) {
+            done = true;
+            reject(new Error('Timeout loading ' + url));
+          }
+        }, timeoutMs);
+
+        s.onload = () => {
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            resolve(true);
+          }
+        };
+        s.onerror = () => {
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            reject(new Error('Failed loading ' + url));
+          }
+        };
         document.head.appendChild(s);
       });
     }
@@ -404,7 +429,7 @@
       ];
       for (const u of urls) {
         try {
-          await loadScriptDynamic(u);
+          await loadScriptDynamic(u, 7000);
           if (window.faceapi) return true;
         } catch (e) {}
       }
@@ -413,38 +438,53 @@
 
     async function loadFaceApiModels() {
       if (faceApiReady && window.faceapi) return window.faceapi;
-      $('telemetry-mesh').textContent = 'LOADING 128D MODELS…';
-      const loaded = await ensureFaceApiLoaded();
-      if (!loaded || !window.faceapi) {
-        throw new Error('Failed to load face-api.js library.');
-      }
+      if (modelLoadPromise) return modelLoadPromise;
 
-      if (faceapi.tf && faceapi.tf.ready) {
-        await faceapi.tf.ready();
-      }
-
-      let lastErr = null;
-      for (const baseUrl of MODEL_URLS) {
-        try {
-          await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl),
-            faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl),
-            faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl)
-          ]);
-          faceApiReady = true;
-          $('telemetry-mesh').textContent = '128D EMBEDDING READY';
-          return faceapi;
-        } catch (err) {
-          lastErr = err;
+      modelLoadPromise = (async () => {
+        $('telemetry-mesh').textContent = 'LOADING 128D MODELS…';
+        const loaded = await ensureFaceApiLoaded();
+        if (!loaded || !window.faceapi) {
+          modelLoadPromise = null;
+          throw new Error('Face recognition library failed to load. Check connection.');
         }
-      }
-      throw lastErr || new Error('Failed to load face-api model weights.');
+
+        if (faceapi.tf) {
+          if (faceapi.tf.ready) await faceapi.tf.ready();
+          // Prefer WebGL backend for faster mobile/desktop inference
+          try {
+            if (faceapi.tf.getBackend() !== 'webgl') {
+              await faceapi.tf.setBackend('webgl');
+            }
+          } catch (e) {}
+        }
+
+        let lastErr = null;
+        for (const baseUrl of MODEL_URLS) {
+          try {
+            await Promise.all([
+              faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl),
+              faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl),
+              faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl)
+            ]);
+            faceApiReady = true;
+            $('telemetry-mesh').textContent = '128D EMBEDDING READY';
+            return faceapi;
+          } catch (err) {
+            lastErr = err;
+          }
+        }
+        modelLoadPromise = null;
+        throw lastErr || new Error('Failed to load face recognition model weights.');
+      })();
+
+      return modelLoadPromise;
     }
 
     function getDetectorOptions() {
+      // inputSize 160 runs noticeably faster on phones than 224 while keeping good detection
       return new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,
-        scoreThreshold: 0.5
+        inputSize: 160,
+        scoreThreshold: 0.45
       });
     }
 
@@ -454,8 +494,8 @@
       video.classList.add('mirror'); overlay.classList.add('mirror');
 
       const constraints = [
-        { video: { facingMode: { exact: 'user' }, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30 } }, audio: false },
-        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: { facingMode: { exact: 'user' }, width: { ideal: 480, max: 640 }, height: { ideal: 360, max: 480 }, frameRate: { ideal: 24, max: 30 } }, audio: false },
+        { video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } }, audio: false },
         { video: { facingMode: 'user' }, audio: false },
         { video: true, audio: false }
       ];
@@ -478,24 +518,29 @@
       });
       await video.play();
 
-      overlay.width = video.videoWidth || 640;
-      overlay.height = video.videoHeight || 480;
+      overlay.width = video.videoWidth || 480;
+      overlay.height = video.videoHeight || 360;
 
       isCameraActive = true;
       $('cam-btn-text').textContent = "Active";
       $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
+      $('btn-checkin').disabled = false;
+      $('btn-checkout').disabled = false;
+      $('btn-enroll').disabled = false;
 
-      await loadFaceApiModels();
+      // Load models right after camera preview starts so camera opens immediately
+      loadFaceApiModels().then(() => {
+        if (isCameraActive) say('128D Face Model Ready. Align face & tap Check-In/Out.', '');
+      }).catch(err => {
+        if (isCameraActive) say('Model Warning: ' + err.message, 'bad');
+      });
     }
 
     $('btn-start-cam').onclick = async () => {
       try {
-        say('Initializing Front Camera & 128D Face Model…');
+        say('Starting Front Camera…');
         await initCamera();
-        say('128D Face Model Active. Center your face in the frame.', '');
-        $('btn-checkin').disabled = false;
-        $('btn-checkout').disabled = false;
-        $('btn-enroll').disabled = false;
+        say('Camera Active. Loading 128D Face Model…', '');
       } catch (err) {
         say('Camera Error: ' + err.message, 'bad');
       }
@@ -510,6 +555,26 @@
        ======================================================== */
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+    function l2NormalizeVec(arr) {
+      let sumSq = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const v = Number(arr[i]) || 0;
+        sumSq += v * v;
+      }
+      const norm = Math.sqrt(sumSq) || 1;
+      return arr.map(v => (Number(v) || 0) / norm);
+    }
+
+    function validateFaceBoxSize(detection, videoEl) {
+      if (!detection || !detection.detection || !detection.detection.box) return false;
+      const box = detection.detection.box;
+      const vw = videoEl.videoWidth || 480;
+      const vh = videoEl.videoHeight || 360;
+      const minDim = Math.min(vw, vh);
+      // Face box should be at least ~18% of the smaller frame dimension for reliable 128D features
+      return Math.max(box.width, box.height) >= minDim * 0.18;
+    }
+
     async function captureFaceEmbedding(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
@@ -517,22 +582,31 @@
       const api = await loadFaceApiModels();
       const opts = getDetectorOptions();
       const samples = [];
+      let sawTooSmallFace = false;
 
-      for (let s = 0; s < 3; s++) {
+      // Capture up to 5 frames for stronger multi-frame accuracy
+      for (let s = 0; s < 5; s++) {
         const result = await api
           .detectSingleFace(videoEl, opts)
           .withFaceLandmarks()
           .withFaceDescriptor();
 
         if (result && result.descriptor && result.descriptor.length === 128) {
-          latestDetection = result;
-          samples.push(Array.from(result.descriptor));
+          if (!validateFaceBoxSize(result, videoEl)) {
+            sawTooSmallFace = true;
+          } else {
+            latestDetection = result;
+            samples.push(l2NormalizeVec(Array.from(result.descriptor)));
+          }
         }
-        if (s < 2) await sleep(65);
+        if (s < 4 && samples.length < 4) await sleep(80);
       }
 
       if (!samples.length) {
-        throw new Error("No clear face detected. Align your face directly with the camera.");
+        if (sawTooSmallFace) {
+          throw new Error("Move closer to the camera so your face fills more of the frame.");
+        }
+        throw new Error("No clear face detected. Face the camera directly in good light.");
       }
 
       const avg = new Array(128).fill(0);
@@ -541,22 +615,23 @@
           avg[d] += vec[d] / samples.length;
         }
       }
-      return avg;
+      return l2NormalizeVec(avg);
     }
 
     function parseDescriptor(raw) {
       if (!raw) return [];
-      if (Array.isArray(raw)) return raw.map(Number);
-      if (typeof raw === 'string') {
+      let arr = [];
+      if (Array.isArray(raw)) arr = raw.map(Number);
+      else if (typeof raw === 'string') {
         try {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed.map(Number);
+          if (Array.isArray(parsed)) arr = parsed.map(Number);
         } catch (e) {}
+      } else if (typeof raw === 'object') {
+        arr = Object.values(raw).map(Number);
       }
-      if (typeof raw === 'object') {
-        return Object.values(raw).map(Number);
-      }
-      return [];
+      if (!arr.length || arr.some(n => !Number.isFinite(n))) return [];
+      return l2NormalizeVec(arr);
     }
 
     function euclideanDistance(descA, descB) {
@@ -572,11 +647,13 @@
     }
 
     function distanceToConfidencePercent(dist, threshold) {
-      const ratio = Math.max(0, Math.min(1, 1 - (dist / Math.max(0.85, threshold * 1.45))));
-      return (ratio * 100).toFixed(1);
+      // Map distance 0.0 -> ~100%, threshold -> ~55%, >1.1 -> low
+      const clamped = Math.max(0, Math.min(1.15, dist));
+      const pct = Math.max(0, Math.min(100, (1 - clamped / 1.15) * 100));
+      return pct.toFixed(1);
     }
 
-    /* Live Face Detection & 68-Landmark Overlay Loop */
+    /* Live Face Detection Overlay Loop (throttled for smooth UI) */
     let meshPhase = 0;
     let lastTrackTime = 0;
     let isTrackingBusy = false;
@@ -600,14 +677,12 @@
     async function updateLiveFace() {
       if (!isCameraActive || !faceApiReady || !window.faceapi || isTrackingBusy) return;
       const now = performance.now();
-      if (now - lastTrackTime < 110) return;
+      if (now - lastTrackTime < 220) return;
       isTrackingBusy = true;
 
       try {
-        const det = await faceapi
-          .detectSingleFace(video, getDetectorOptions())
-          .withFaceLandmarks();
-        latestDetection = det || null;
+        const det = await faceapi.detectSingleFace(video, getDetectorOptions());
+        latestDetection = det ? { detection: det } : null;
         lastTrackTime = performance.now();
       } catch (e) {
         latestDetection = null;
@@ -618,8 +693,8 @@
 
     function drawOverlay() {
       if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-        overlay.width = video.videoWidth || 640;
-        overlay.height = video.videoHeight || 480;
+        overlay.width = video.videoWidth || 480;
+        overlay.height = video.videoHeight || 360;
       }
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
@@ -635,7 +710,7 @@
       $('telemetry-text').textContent = !isCameraActive
         ? 'CAMERA STANDBY'
         : latestDetection
-          ? 'FACE LOCKED (68 LANDMARKS)'
+          ? 'FACE LOCKED'
           : 'SEARCHING FOR FACE…';
 
       if (!showMesh) return;
@@ -658,16 +733,6 @@
         ctx.beginPath(); ctx.moveTo(x2 - bl, y); ctx.lineTo(x2, y); ctx.lineTo(x2, y + bl); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x, y2 - bl); ctx.lineTo(x, y2); ctx.lineTo(x + bl, y2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x2 - bl, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - bl); ctx.stroke();
-
-        const pts = latestDetection.landmarks && latestDetection.landmarks.positions;
-        if (pts && pts.length) {
-          ctx.fillStyle = '#38bdf8';
-          for (let i = 0; i < pts.length; i++) {
-            ctx.beginPath();
-            ctx.arc(pts[i].x, pts[i].y, 2.0, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
         return;
       }
 
@@ -692,7 +757,7 @@
       requestAnimationFrame(loop);
     }
 
-    /* Enrollment Handler (Stores 128D Face Descriptor) */
+    /* Enrollment Handler (Stores L2-Normalized 128D Face Descriptor) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -705,7 +770,7 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Extracting 128D face embedding…');
+        say('Capturing 128D face embedding…');
         const signature = await captureFaceEmbedding(video);
 
         const { error } = await supabaseClient.from('enrolled_personnel').insert([{
@@ -738,7 +803,7 @@
       $('btn-checkout').disabled = true;
 
       try {
-        say(`Computing 128D embedding for ${actionType} (${shift})…`);
+        say(`Scanning 128D face features for ${actionType} (${shift})…`);
         const [currentDesc, personnel] = await Promise.all([
           captureFaceEmbedding(video),
           getPersonnelCached(false)
