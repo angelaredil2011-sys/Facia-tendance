@@ -287,9 +287,9 @@
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
                   <span class="text-[11px] sm:text-xs text-gray-400">Max Distance Threshold (Lower = Stricter)</span>
-                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.52</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.45</span>
                 </div>
-                <input type="range" id="thr" min="0.35" max="0.75" step="0.01" value="0.52" 
+                <input type="range" id="thr" min="0.30" max="0.65" step="0.01" value="0.45" 
                        class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
               </div>
             </div>
@@ -674,16 +674,31 @@
     function parseDescriptor(raw) {
       if (!raw) return [];
       let arr = [];
-      if (Array.isArray(raw)) arr = raw.map(Number);
-      else if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) arr = parsed.map(Number);
-        } catch (e) {}
+      if (Array.isArray(raw) || ArrayBuffer.isView(raw)) {
+        arr = Array.from(raw).map(Number);
+      } else if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const parsedObj = JSON.parse(trimmed);
+            if (Array.isArray(parsedObj?.embeddings)) return parseDescriptor(parsedObj.embeddings[0]);
+            if (Array.isArray(parsedObj?.primary)) arr = parsedObj.primary.map(Number);
+            else arr = trimmed.slice(1, -1).split(',').map(Number);
+          } catch (e) {
+            arr = trimmed.slice(1, -1).split(',').map(Number);
+          }
+        } else {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) arr = parsed.map(Number);
+            else if (Array.isArray(parsed?.embeddings)) return parseDescriptor(parsed.embeddings[0]);
+            else if (Array.isArray(parsed?.primary)) arr = parsed.primary.map(Number);
+          } catch (e) {}
+        }
       } else if (typeof raw === 'object') {
         arr = Object.values(raw).map(Number);
       }
-      if (!arr.length || arr.some(n => !Number.isFinite(n))) return [];
+      if (arr.length !== 128 || arr.some(n => !Number.isFinite(n))) return [];
       return l2NormalizeVec(arr);
     }
 
@@ -932,9 +947,23 @@
 
         const maxThreshold = +$('thr').value;
         const ranked = personnel
-          .map(p => ({ person: p, distance: personMinDistance(currentDesc, p) }))
-          .filter(item => Number.isFinite(item.distance))
+          .map(p => {
+            const vecs = extractPersonDescriptors(p);
+            return {
+              person: p,
+              validVecCount: vecs.length,
+              distance: personMinDistance(currentDesc, p)
+            };
+          })
+          .filter(item => item.validVecCount > 0 && Number.isFinite(item.distance))
           .sort((a, b) => a.distance - b.distance);
+
+        console.log('[Scan Candidates]', ranked.map(r => ({
+          name: r.person.name,
+          id: r.person.id_number,
+          samples: r.validVecCount,
+          dist: Number(r.distance.toFixed(4))
+        })));
 
         const bestMatch = ranked[0] || { person: null, distance: Infinity };
         const secondMatch = ranked[1] || null;
