@@ -287,9 +287,9 @@
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
                   <span class="text-[11px] sm:text-xs text-gray-400">Max Distance Threshold (Lower = Stricter)</span>
-                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.45</span>
+                  <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.38</span>
                 </div>
-                <input type="range" id="thr" min="0.30" max="0.65" step="0.01" value="0.45" 
+                <input type="range" id="thr" min="0.25" max="0.55" step="0.01" value="0.38" 
                        class="w-full h-1.5 bg-[#0a0c10] rounded-lg appearance-none cursor-pointer accent-[#2563eb]" />
               </div>
             </div>
@@ -481,9 +481,9 @@
     }
 
     function getDetectorOptions() {
-      // inputSize 160 runs noticeably faster on phones than 224 while keeping good detection
+      // inputSize 128 is ~2x faster on mobile devices than 160/224
       return new faceapi.TinyFaceDetectorOptions({
-        inputSize: 160,
+        inputSize: 128,
         scoreThreshold: 0.45
       });
     }
@@ -625,50 +625,60 @@
       return { ok: true, reason: 'ok' };
     }
 
+    let isScanningBusy = false;
+
     async function captureFaceEmbedding(videoEl) {
       if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
         throw new Error("Camera stream not active or ready.");
       }
-      const api = await loadFaceApiModels();
-      const opts = getDetectorOptions();
-      const samples = [];
-      let sawTooFar = false;
-      let sawAngled = false;
+      isScanningBusy = true;
+      try {
+        const api = await loadFaceApiModels();
+        const opts = getDetectorOptions();
+        const samples = [];
+        let sawTooFar = false;
+        let sawAngled = false;
 
-      // Capture up to 6 high-quality frames and take component-wise median
-      for (let s = 0; s < 6; s++) {
-        const result = await api
-          .detectSingleFace(videoEl, opts)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        // Capture up to 2 fast frames so mobile scans feel snappy
+        for (let s = 0; s < 2; s++) {
+          const result = await api
+            .detectSingleFace(videoEl, opts)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        if (result && result.descriptor && result.descriptor.length === 128) {
-          const q = validateFaceQuality(result, videoEl);
-          if (q.ok) {
-            latestDetection = result;
-            samples.push(l2NormalizeVec(Array.from(result.descriptor)));
-          } else if (q.reason === 'too_far') {
-            sawTooFar = true;
-          } else if (q.reason === 'angled') {
-            sawAngled = true;
+          if (result && result.descriptor && result.descriptor.length === 128) {
+            const q = validateFaceQuality(result, videoEl);
+            if (q.ok) {
+              latestDetection = result;
+              samples.push(l2NormalizeVec(Array.from(result.descriptor)));
+            } else if (q.reason === 'too_far') {
+              sawTooFar = true;
+            } else if (q.reason === 'angled') {
+              sawAngled = true;
+            }
           }
+
+          if (samples.length >= 1 && s === 0) {
+            // 1 crisp frame is plenty for quick verification; grab 2nd only if first was borderline
+            break;
+          }
+          if (s < 1) await sleep(30);
         }
 
-        if (samples.length >= 4) break;
-        if (s < 5) await sleep(85);
+        if (!samples.length) {
+          if (sawTooFar) {
+            throw new Error("Move closer to the camera so your face fills more of the frame.");
+          }
+          if (sawAngled) {
+            throw new Error("Look straight at the camera instead of turning sharply sideways.");
+          }
+          throw new Error("No clear face detected. Face the camera directly in good light.");
+        }
+
+        return computeComponentMedian(samples);
+      } finally {
+        isScanningBusy = false;
       }
-
-      if (!samples.length) {
-        if (sawTooFar) {
-          throw new Error("Move closer to the camera so your face fills more of the frame.");
-        }
-        if (sawAngled) {
-          throw new Error("Look straight at the camera instead of turning sharply sideways.");
-        }
-        throw new Error("No clear face detected. Face the camera directly in good light.");
-      }
-
-      return computeComponentMedian(samples);
     }
 
     function parseDescriptor(raw) {
@@ -775,7 +785,7 @@
     }
 
     async function updateLiveFace() {
-      if (!isCameraActive || !faceApiReady || !window.faceapi || isTrackingBusy) return;
+      if (!isCameraActive || !faceApiReady || !window.faceapi || isTrackingBusy || isScanningBusy) return;
       const now = performance.now();
       if (now - lastTrackTime < 220) return;
       isTrackingBusy = true;
@@ -968,11 +978,10 @@
         const bestMatch = ranked[0] || { person: null, distance: Infinity };
         const secondMatch = ranked[1] || null;
 
-        // Guard against ambiguous close match between two different people near threshold
+        // Guard against close/ambiguous match when multiple people are enrolled
         const hasAmbiguousRunnerUp =
           secondMatch &&
-          bestMatch.distance > (maxThreshold * 0.82) &&
-          (secondMatch.distance - bestMatch.distance) < 0.03;
+          (secondMatch.distance - bestMatch.distance) < 0.06;
 
         if (bestMatch.person && bestMatch.distance <= maxThreshold && !hasAmbiguousRunnerUp) {
           const person = bestMatch.person;
@@ -1003,301 +1012,6 @@
         }
       }
     }
-
-    // ========================================================
-    // SUPABASE CONNECTION
-    // ========================================================
-    const SUPABASE_URL = 'https://ahitbnftioivzbvrenls.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_NhsYm3Tn9Um1XsyEh8ahyg_wJPO5DfP';
-    
-    let supabaseClient = null;
-    try {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (e) {
-      console.warn('Supabase initialization warning:', e);
-    }
-
-    // ========================================================
-    // HOMESCREEN LOCK & RESPONSIVE DEVICE DETECTION
-    // ========================================================
-    function updateLockClock() {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-      const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      if ($('lock-clock')) $('lock-clock').textContent = `${dateStr} • ${timeStr}`;
-    }
-    setInterval(updateLockClock, 1000);
-    updateLockClock();
-
-    function updateDeviceBadge() {
-      const w = window.innerWidth;
-      const label = $('device-mode-label');
-      if (!label) return;
-      if (w < 768) label.textContent = 'Mobile View';
-      else if (w < 1024) label.textContent = 'Tablet View';
-      else label.textContent = 'Desktop / PC View';
-    }
-    window.addEventListener('resize', updateDeviceBadge);
-    updateDeviceBadge();
-
-    // ========================================================
-    // FULLSCREEN MODE CONTROLLER (Cross-Browser + Mobile Support)
-    // ========================================================
-    function isDocumentFullscreen() {
-      return !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
-    }
-
-    async function toggleFullscreenMode() {
-      const docEl = document.documentElement;
-      try {
-        if (!isDocumentFullscreen()) {
-          if (docEl.requestFullscreen) {
-            await docEl.requestFullscreen();
-          } else if (docEl.webkitRequestFullscreen) {
-            await docEl.webkitRequestFullscreen();
-          } else if (docEl.msRequestFullscreen) {
-            await docEl.msRequestFullscreen();
-          }
-        } else {
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            await document.webkitExitFullscreen();
-          } else if (document.msExitFullscreen) {
-            await document.msExitFullscreen();
-          }
-        }
-      } catch (err) {
-        console.warn('Fullscreen request failed:', err);
-      }
-    }
-
-    function syncFullscreenUI() {
-      const active = isDocumentFullscreen();
-      const headerIcon = $('fullscreen-icon');
-      const headerText = $('fullscreen-btn-text');
-      const lockIcon = $('lock-fullscreen-icon');
-
-      if (headerIcon) {
-        headerIcon.className = active
-          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
-          : 'fa-solid fa-expand text-[11px] text-sky-400';
-      }
-      if (headerText) {
-        headerText.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
-      }
-      if (lockIcon) {
-        lockIcon.className = active
-          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
-          : 'fa-solid fa-expand text-[11px] text-sky-400';
-      }
-    }
-
-    $('btn-fullscreen-toggle').onclick = toggleFullscreenMode;
-    $('btn-lock-fullscreen').onclick = toggleFullscreenMode;
-    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
-      document.addEventListener(evt, syncFullscreenUI);
-    });
-
-    // Toggle Password Visibility on Homescreen
-    $('btn-toggle-lock-vis').onclick = () => {
-      const pwd = $('terminal-password');
-      const icon = $('lock-vis-icon');
-      if (pwd.type === 'password') {
-        pwd.type = 'text';
-        icon.className = 'fa-solid fa-eye-slash';
-      } else {
-        pwd.type = 'password';
-        icon.className = 'fa-solid fa-eye';
-      }
-    };
-
-    // Unlock Terminal Handler
-    $('terminal-unlock-form').onsubmit = (e) => {
-      e.preventDefault();
-      const inputVal = $('terminal-password').value.trim();
-      if (inputVal === TERMINAL_PASSCODE) {
-        isTerminalUnlocked = true;
-        $('terminal-lock-error').classList.add('hidden');
-        $('terminal-password').value = '';
-        $('terminal-lock-screen').classList.add('hidden');
-        $('app-shell').classList.remove('hidden');
-        $('app-shell').classList.add('animate-fade-in');
-      } else {
-        $('terminal-lock-error').classList.remove('hidden');
-        $('terminal-password').value = '';
-        $('terminal-password').focus();
-      }
-    };
-
-    // Re-Lock Terminal Handler
-    $('btn-lock-terminal').onclick = () => {
-      isTerminalUnlocked = false;
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = null;
-      }
-      isCameraActive = false;
-      latestDetection = null;
-      $('cam-btn-text').textContent = 'Start';
-      $('btn-start-cam').classList.replace('bg-emerald-600', 'bg-[#2563eb]');
-      $('btn-checkin').disabled = true;
-      $('btn-checkout').disabled = true;
-      $('btn-enroll').disabled = true;
-      say('Tap "Start" to activate camera terminal.');
-
-      isAdminAuthenticated = false;
-      $('admin-panel').classList.add('hidden');
-      $('attendance-panel').classList.remove('hidden');
-      $('admin-btn-text').textContent = 'Admin';
-      $('admin-icon').className = 'fa-solid fa-lock text-[11px] text-amber-400';
-
-      $('app-shell').classList.add('hidden');
-      $('terminal-lock-screen').classList.remove('hidden');
-      $('terminal-password').focus();
-    };
-
-    window.addEventListener('DOMContentLoaded', () => {
-      $('terminal-password').focus();
-    });
-
-    // ========================================================
-    // STATUS BANNER & BIOMETRIC OPERATIONS
-    // ========================================================
-    const say = (msg, cls = '') => { 
-      banner.textContent = msg; 
-      banner.className = 'absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold backdrop-blur-md transition-colors duration-300 ' + 
-        (cls === 'ok' ? 'bg-emerald-700/90 text-white' : cls === 'bad' ? 'bg-rose-700/90 text-white' : 'bg-black/80 text-gray-300 border-t border-white/10');
-      
-      const badge = $('status-badge');
-      if (cls === 'ok') {
-        badge.textContent = 'Success';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      } else if (cls === 'bad') {
-        badge.textContent = 'Failed';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
-      } else {
-        badge.textContent = isCameraActive ? 'Active' : 'Standby';
-        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
-      }
-    };
-
-    /* Supabase Cloud Operations */
-    async function fetchPersonnel() {
-      if (!supabaseClient) return;
-      try {
-        const { data, error } = await supabaseClient.from('enrolled_personnel').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        renderPersonnelList(data || []);
-      } catch (e) {
-        console.error('Fetch personnel error:', e.message);
-      }
-    }
-
-    async function fetchLogs() {
-      if (!supabaseClient) return;
-      try {
-        const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(15);
-        if (error) throw error;
-        renderLogsList(data || []);
-      } catch (e) {
-        console.error('Fetch logs error:', e.message);
-      }
-    }
-
-    function renderPersonnelList(people) {
-      if (!isAdminAuthenticated) return;
-      if (!people.length) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>';
-        return;
-      }
-      $('list').innerHTML = '';
-      for (const p of people) {
-        const li = document.createElement('li');
-        li.className = 'py-2 flex justify-between items-center text-xs';
-        li.innerHTML = `<div><strong class="text-white">${p.name}</strong> <span class="text-blue-400 font-mono">(${p.id_number})</span><br/><span class="text-[10px] text-gray-400">${p.shift}</span></div>`;
-        const delBtn = document.createElement('button');
-        delBtn.className = 'px-2 py-0.5 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded text-[11px] font-semibold';
-        delBtn.textContent = 'Remove';
-        delBtn.onclick = async () => {
-          if (!confirm(`Delete ${p.name} from cloud database?`)) return;
-          await supabaseClient.from('enrolled_personnel').delete().eq('id', p.id);
-          cachedPersonnel = null;
-          fetchPersonnel();
-        };
-        li.appendChild(delBtn);
-        $('list').appendChild(li);
-      }
-    }
-
-    function renderLogsList(logs) {
-      if (!isAdminAuthenticated) return;
-      if (!logs.length) {
-        $('logs-list').innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
-        return;
-      }
-      $('logs-list').innerHTML = '';
-      for (const l of logs) {
-        const div = document.createElement('div');
-        div.className = 'p-2 rounded bg-[#0a0c10] border border-[#1f293d] flex justify-between items-center text-xs';
-        const badgeColor = l.action_type === 'Check-In' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-blue-500/15 text-blue-400';
-        div.innerHTML = `
-          <div>
-            <span class="font-bold text-white">${l.name}</span> <span class="text-[10px] text-gray-400">(${l.id_number})</span><br/>
-            <span class="text-[10px] text-sky-400">${l.shift}</span> • <span class="text-[10px] text-gray-400">${new Date(l.timestamp).toLocaleTimeString()}</span>
-          </div>
-          <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeColor}">${l.action_type}</span>
-        `;
-        $('logs-list').appendChild(div);
-      }
-    }
-
-    /* Admin Authentication Controls */
-    $('btn-admin-toggle').onclick = () => {
-      if (isAdminAuthenticated) {
-        isAdminAuthenticated = false;
-        $('admin-panel').classList.add('hidden');
-        $('attendance-panel').classList.remove('hidden');
-        $('admin-btn-text').textContent = "Admin";
-        $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
-      } else {
-        $('admin-password').value = '';
-        $('admin-error').classList.add('hidden');
-        $('admin-modal').classList.remove('hidden');
-        $('admin-password').focus();
-      }
-    };
-    $('btn-modal-cancel').onclick = () => $('admin-modal').classList.add('hidden');
-    $('btn-modal-login').onclick = () => {
-      if ($('admin-password').value === ADMIN_PASSCODE) {
-        isAdminAuthenticated = true;
-        $('admin-modal').classList.add('hidden');
-        $('admin-panel').classList.remove('hidden');
-        $('attendance-panel').classList.add('hidden');
-        $('admin-btn-text').textContent = "Exit Admin";
-        $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
-        fetchPersonnel();
-        fetchLogs();
-      } else {
-        $('admin-error').classList.remove('hidden');
-      }
-    };
-    $('admin-password').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('btn-modal-login').click();
-    });
-    $('btn-admin-logout').onclick = () => {
-      isAdminAuthenticated = false;
-      $('admin-panel').classList.add('hidden');
-      $('attendance-panel').classList.remove('hidden');
-      $('admin-btn-text').textContent = "Admin";
-      $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
-    };
-    $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
     $('btn-checkin').onclick = () => handleAttendance('Check-In');
     $('btn-checkout').onclick = () => handleAttendance('Check-Out');
