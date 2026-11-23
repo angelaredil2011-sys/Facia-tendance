@@ -551,7 +551,7 @@
     };
 
     /* ========================================================
-       128D FACE EMBEDDING ENGINE (@vladmandic/face-api)
+       ENHANCED 128D FACE EMBEDDING ENGINE (@vladmandic/face-api)
        ======================================================== */
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -565,14 +565,64 @@
       return arr.map(v => (Number(v) || 0) / norm);
     }
 
-    function validateFaceBoxSize(detection, videoEl) {
-      if (!detection || !detection.detection || !detection.detection.box) return false;
-      const box = detection.detection.box;
+    function computeComponentMedian(vectors) {
+      if (!vectors.length) return [];
+      const dims = vectors[0].length;
+      const med = new Array(dims).fill(0);
+      const col = new Array(vectors.length);
+
+      for (let d = 0; d < dims; d++) {
+        for (let i = 0; i < vectors.length; i++) {
+          col[i] = vectors[i][d];
+        }
+        col.sort((a, b) => a - b);
+        const mid = Math.floor(col.length / 2);
+        med[d] = col.length % 2 !== 0 ? col[mid] : (col[mid - 1] + col[mid]) / 2;
+      }
+      return l2NormalizeVec(med);
+    }
+
+    function avgPoint(pts) {
+      let sx = 0, sy = 0;
+      for (const p of pts) {
+        sx += p.x;
+        sy += p.y;
+      }
+      return { x: sx / pts.length, y: sy / pts.length };
+    }
+
+    function validateFaceQuality(result, videoEl) {
+      if (!result || !result.detection || !result.detection.box) {
+        return { ok: false, reason: 'no_face' };
+      }
+      const box = result.detection.box;
       const vw = videoEl.videoWidth || 480;
       const vh = videoEl.videoHeight || 360;
       const minDim = Math.min(vw, vh);
-      // Face box should be at least ~18% of the smaller frame dimension for reliable 128D features
-      return Math.max(box.width, box.height) >= minDim * 0.18;
+
+      // Require face box to cover at least 22% of smaller frame dimension
+      if (Math.max(box.width, box.height) < minDim * 0.22) {
+        return { ok: false, reason: 'too_far' };
+      }
+
+      // Check left/right eye vs nose horizontal symmetry when 68 landmarks are present
+      if (result.landmarks && typeof result.landmarks.getLeftEye === 'function') {
+        const leftEye = avgPoint(result.landmarks.getLeftEye());
+        const rightEye = avgPoint(result.landmarks.getRightEye());
+        const nose = avgPoint(result.landmarks.getNose());
+        const eyeSpan = Math.abs(rightEye.x - leftEye.x);
+
+        if (eyeSpan > 8) {
+          const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+          const noseOffsetRatio = Math.abs(nose.x - eyeCenterX) / eyeSpan;
+          // Reject sharp side-profile turns where nose shifts past ~0.42 of eye distance
+          if (noseOffsetRatio > 0.42) {
+            return { ok: false, reason: 'angled' };
+          }
+        }
+      }
+
+      return { ok: true, reason: 'ok' };
     }
 
     async function captureFaceEmbedding(videoEl) {
@@ -582,40 +632,43 @@
       const api = await loadFaceApiModels();
       const opts = getDetectorOptions();
       const samples = [];
-      let sawTooSmallFace = false;
+      let sawTooFar = false;
+      let sawAngled = false;
 
-      // Capture up to 5 frames for stronger multi-frame accuracy
-      for (let s = 0; s < 5; s++) {
+      // Capture up to 6 high-quality frames and take component-wise median
+      for (let s = 0; s < 6; s++) {
         const result = await api
           .detectSingleFace(videoEl, opts)
           .withFaceLandmarks()
           .withFaceDescriptor();
 
         if (result && result.descriptor && result.descriptor.length === 128) {
-          if (!validateFaceBoxSize(result, videoEl)) {
-            sawTooSmallFace = true;
-          } else {
+          const q = validateFaceQuality(result, videoEl);
+          if (q.ok) {
             latestDetection = result;
             samples.push(l2NormalizeVec(Array.from(result.descriptor)));
+          } else if (q.reason === 'too_far') {
+            sawTooFar = true;
+          } else if (q.reason === 'angled') {
+            sawAngled = true;
           }
         }
-        if (s < 4 && samples.length < 4) await sleep(80);
+
+        if (samples.length >= 4) break;
+        if (s < 5) await sleep(85);
       }
 
       if (!samples.length) {
-        if (sawTooSmallFace) {
+        if (sawTooFar) {
           throw new Error("Move closer to the camera so your face fills more of the frame.");
+        }
+        if (sawAngled) {
+          throw new Error("Look straight at the camera instead of turning sharply sideways.");
         }
         throw new Error("No clear face detected. Face the camera directly in good light.");
       }
 
-      const avg = new Array(128).fill(0);
-      for (const vec of samples) {
-        for (let d = 0; d < 128; d++) {
-          avg[d] += vec[d] / samples.length;
-        }
-      }
-      return l2NormalizeVec(avg);
+      return computeComponentMedian(samples);
     }
 
     function parseDescriptor(raw) {
@@ -634,10 +687,33 @@
       return l2NormalizeVec(arr);
     }
 
-    function euclideanDistance(descA, descB) {
-      const a = parseDescriptor(descA);
-      const b = parseDescriptor(descB);
-      if (!a.length || !b.length || a.length !== b.length) return Infinity;
+    function extractPersonDescriptors(person) {
+      const descriptors = [];
+      if (!person) return descriptors;
+
+      // Support optional multi-embedding object/array if stored inside signature or extra field
+      if (person.signature && typeof person.signature === 'object' && !Array.isArray(person.signature)) {
+        if (Array.isArray(person.signature.embeddings)) {
+          for (const emb of person.signature.embeddings) {
+            const norm = parseDescriptor(emb);
+            if (norm.length === 128) descriptors.push(norm);
+          }
+        }
+        if (Array.isArray(person.signature.primary)) {
+          const norm = parseDescriptor(person.signature.primary);
+          if (norm.length === 128) descriptors.push(norm);
+        }
+      }
+
+      const primary = parseDescriptor(person.signature);
+      if (primary.length === 128) {
+        descriptors.push(primary);
+      }
+      return descriptors;
+    }
+
+    function euclideanDistanceVec(a, b) {
+      if (!a || !b || !a.length || !b.length || a.length !== b.length) return Infinity;
       let sumSq = 0;
       for (let i = 0; i < a.length; i++) {
         const diff = a[i] - b[i];
@@ -646,8 +722,17 @@
       return Math.sqrt(sumSq);
     }
 
-    function distanceToConfidencePercent(dist, threshold) {
-      // Map distance 0.0 -> ~100%, threshold -> ~55%, >1.1 -> low
+    function personMinDistance(liveDesc, person) {
+      const candidates = extractPersonDescriptors(person);
+      let best = Infinity;
+      for (const vec of candidates) {
+        const d = euclideanDistanceVec(liveDesc, vec);
+        if (d < best) best = d;
+      }
+      return best;
+    }
+
+    function distanceToConfidencePercent(dist) {
       const clamped = Math.max(0, Math.min(1.15, dist));
       const pct = Math.max(0, Math.min(100, (1 - clamped / 1.15) * 100));
       return pct.toFixed(1);
@@ -757,7 +842,7 @@
       requestAnimationFrame(loop);
     }
 
-    /* Enrollment Handler (Stores L2-Normalized 128D Face Descriptor) */
+    /* Enrollment Handler (Appends 128D Sample if ID Already Exists, Up to 4 Samples) */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -770,22 +855,54 @@
       $('btn-enroll').disabled = true;
 
       try {
-        say('Capturing 128D face embedding…');
-        const signature = await captureFaceEmbedding(video);
+        say('Capturing aligned 128D face samples…');
+        const newVec = await captureFaceEmbedding(video);
 
-        const { error } = await supabaseClient.from('enrolled_personnel').insert([{
-          name,
-          id_number: idNumber,
-          shift,
-          signature
-        }]);
+        const { data: existingRows, error: fetchErr } = await supabaseClient
+          .from('enrolled_personnel')
+          .select('*')
+          .eq('id_number', idNumber);
 
-        if (error) throw error;
+        if (fetchErr) throw fetchErr;
+
+        if (existingRows && existingRows.length > 0) {
+          const target = existingRows[0];
+          const prevVecs = extractPersonDescriptors(target);
+          const updatedVecs = [...prevVecs, newVec].slice(-4);
+          const signaturePayload = {
+            primary: updatedVecs[0],
+            embeddings: updatedVecs
+          };
+
+          const { error: updErr } = await supabaseClient
+            .from('enrolled_personnel')
+            .update({ name, shift, signature: signaturePayload })
+            .eq('id', target.id);
+
+          if (updErr) throw updErr;
+          cachedPersonnel = null;
+          say(`Added Sample #${updatedVecs.length} for ${name} (${idNumber})`, 'ok');
+        } else {
+          const signaturePayload = {
+            primary: newVec,
+            embeddings: [newVec]
+          };
+          const { error: insErr } = await supabaseClient
+            .from('enrolled_personnel')
+            .insert([{
+              name,
+              id_number: idNumber,
+              shift,
+              signature: signaturePayload
+            }]);
+
+          if (insErr) throw insErr;
+          cachedPersonnel = null;
+          say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
+        }
 
         $('enroll-name').value = '';
         $('enroll-id').value = '';
-        cachedPersonnel = null;
-        say(`Successfully Enrolled: ${name} (${idNumber})`, 'ok');
         fetchPersonnel();
       } catch (e) {
         say('Enrollment Error: ' + e.message, 'bad');
@@ -794,7 +911,7 @@
       }
     };
 
-    /* Attendance Logging Helper (Matches via 128D Euclidean Distance) */
+    /* Attendance Logging Helper (Multi-Embedding Min Distance + Ambiguity Check) */
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
 
@@ -803,7 +920,7 @@
       $('btn-checkout').disabled = true;
 
       try {
-        say(`Scanning 128D face features for ${actionType} (${shift})…`);
+        say(`Verifying aligned 128D face features for ${actionType} (${shift})…`);
         const [currentDesc, personnel] = await Promise.all([
           captureFaceEmbedding(video),
           getPersonnelCached(false)
@@ -814,18 +931,23 @@
         }
 
         const maxThreshold = +$('thr').value;
-        let bestMatch = { person: null, distance: Infinity };
+        const ranked = personnel
+          .map(p => ({ person: p, distance: personMinDistance(currentDesc, p) }))
+          .filter(item => Number.isFinite(item.distance))
+          .sort((a, b) => a.distance - b.distance);
 
-        for (const p of personnel) {
-          const dist = euclideanDistance(currentDesc, p.signature);
-          if (dist < bestMatch.distance) {
-            bestMatch = { person: p, distance: dist };
-          }
-        }
+        const bestMatch = ranked[0] || { person: null, distance: Infinity };
+        const secondMatch = ranked[1] || null;
 
-        if (bestMatch.person && bestMatch.distance <= maxThreshold) {
+        // Guard against ambiguous close match between two different people near threshold
+        const hasAmbiguousRunnerUp =
+          secondMatch &&
+          bestMatch.distance > (maxThreshold * 0.82) &&
+          (secondMatch.distance - bestMatch.distance) < 0.03;
+
+        if (bestMatch.person && bestMatch.distance <= maxThreshold && !hasAmbiguousRunnerUp) {
           const person = bestMatch.person;
-          const matchPct = distanceToConfidencePercent(bestMatch.distance, maxThreshold);
+          const matchPct = distanceToConfidencePercent(bestMatch.distance);
           await supabaseClient.from('attendance_logs').insert([{
             name: person.name,
             id_number: person.id_number,
@@ -837,6 +959,8 @@
 
           say(`${actionType} Successful: ${person.name} (dist ${bestMatch.distance.toFixed(2)} • ${matchPct}%)`, 'ok');
           fetchLogs();
+        } else if (hasAmbiguousRunnerUp) {
+          say(`Ambiguous Match: Hold still & re-scan (${bestMatch.person.name} vs ${secondMatch.person.name})`, 'bad');
         } else {
           const distLabel = Number.isFinite(bestMatch.distance) ? bestMatch.distance.toFixed(2) : 'N/A';
           say(`Access Denied: Face Not Recognized (dist ${distLabel} > ${maxThreshold.toFixed(2)})`, 'bad');
