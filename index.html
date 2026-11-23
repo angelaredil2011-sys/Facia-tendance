@@ -61,7 +61,7 @@
     <button id="btn-lock-fullscreen" type="button" title="Toggle Fullscreen"
             class="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-lg bg-[#12161f]/90 hover:bg-[#1f293d] border border-[#1f293d] text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95 shadow-lg">
       <i id="lock-fullscreen-icon" class="fa-solid fa-expand text-[11px] text-sky-400"></i>
-      <span class="hidden sm:inline">Fullscreen</span>
+      <span id="lock-fullscreen-text" class="hidden sm:inline">Fullscreen</span>
     </button>
 
     <div class="w-full max-w-sm md:max-w-md bg-[#12161f] border border-[#1f293d] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in">
@@ -141,13 +141,6 @@
                   class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i id="fullscreen-icon" class="fa-solid fa-expand text-[11px] text-sky-400"></i>
             <span id="fullscreen-btn-text" class="hidden sm:inline">Fullscreen</span>
-          </button>
-
-          <!-- Lock Terminal Button -->
-          <button id="btn-lock-terminal" title="Lock Homescreen"
-                  class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-400 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
-            <i class="fa-solid fa-power-off text-[11px] text-rose-400"></i>
-            <span class="hidden sm:inline">Lock Screen</span>
           </button>
 
           <!-- Admin Toggle Button -->
@@ -361,18 +354,49 @@
     </div>
   </div>
 
+  <!-- EXIT FULLSCREEN PASSCODE MODAL -->
+  <div id="exit-fs-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
+    <div class="bg-[#12161f] border border-[#1f293d] w-full max-w-xs sm:max-w-sm rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl">
+      <div class="text-center space-y-1.5">
+        <div class="w-11 h-11 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center mx-auto text-base">
+          <i class="fa-solid fa-compress"></i>
+        </div>
+        <h3 class="text-sm sm:text-base font-bold text-white">Exit Fullscreen Mode</h3>
+        <p id="exit-fs-subtitle" class="text-[11px] sm:text-xs text-[#64748b]">Enter passcode to exit fullscreen mode.</p>
+      </div>
+
+      <div class="space-y-2">
+        <input type="password" id="exit-fs-password" inputmode="numeric" placeholder="Passcode" 
+               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3 h-11 text-center text-sm text-white tracking-widest font-mono focus:outline-none focus:border-sky-500" />
+        <p id="exit-fs-error" class="text-[11px] text-rose-500 text-center hidden">Invalid passcode.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <button id="btn-exit-fs-cancel" type="button" class="h-10 bg-[#1f293d] hover:bg-gray-800 text-gray-300 font-medium text-xs rounded-xl">
+          Stay Fullscreen
+        </button>
+        <button id="btn-exit-fs-confirm" type="button" class="h-10 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl shadow-md">
+          Exit Fullscreen
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Application Script -->
   <script>
     const $ = id => document.getElementById(id);
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
     const ctx = overlay.getContext('2d');
 
-    // Passcodes (Terminal Homescreen Lock & Admin Panel)
+    // Passcodes (Terminal Homescreen Lock, Admin Panel & Exit Fullscreen)
     const TERMINAL_PASSCODE = '123587';
     const ADMIN_PASSCODE = '123587';
+    const EXIT_FULLSCREEN_PASSCODE = '123587';
 
     let isTerminalUnlocked = false;
     let isAdminAuthenticated = false;
+    let isAuthorizedFullscreenExit = false;
+    let wasFullscreenActive = false;
     
     let mediaStream = null;
     let isCameraActive = false;
@@ -450,7 +474,6 @@
 
         if (faceapi.tf) {
           if (faceapi.tf.ready) await faceapi.tf.ready();
-          // Prefer WebGL backend for faster mobile/desktop inference
           try {
             if (faceapi.tf.getBackend() !== 'webgl') {
               await faceapi.tf.setBackend('webgl');
@@ -481,7 +504,6 @@
     }
 
     function getDetectorOptions() {
-      // inputSize 128 is ~2x faster on mobile devices than 160/224
       return new faceapi.TinyFaceDetectorOptions({
         inputSize: 128,
         scoreThreshold: 0.45
@@ -528,7 +550,6 @@
       $('btn-checkout').disabled = false;
       $('btn-enroll').disabled = false;
 
-      // Load models right after camera preview starts so camera opens immediately
       loadFaceApiModels().then(() => {
         if (isCameraActive) say('128D Face Model Ready. Align face & tap Check-In/Out.', '');
       }).catch(err => {
@@ -600,12 +621,10 @@
       const vh = videoEl.videoHeight || 360;
       const minDim = Math.min(vw, vh);
 
-      // Require face box to cover at least 22% of smaller frame dimension
       if (Math.max(box.width, box.height) < minDim * 0.22) {
         return { ok: false, reason: 'too_far' };
       }
 
-      // Check left/right eye vs nose horizontal symmetry when 68 landmarks are present
       if (result.landmarks && typeof result.landmarks.getLeftEye === 'function') {
         const leftEye = avgPoint(result.landmarks.getLeftEye());
         const rightEye = avgPoint(result.landmarks.getRightEye());
@@ -615,7 +634,6 @@
         if (eyeSpan > 8) {
           const eyeCenterX = (leftEye.x + rightEye.x) / 2;
           const noseOffsetRatio = Math.abs(nose.x - eyeCenterX) / eyeSpan;
-          // Reject sharp side-profile turns where nose shifts past ~0.42 of eye distance
           if (noseOffsetRatio > 0.42) {
             return { ok: false, reason: 'angled' };
           }
@@ -639,7 +657,6 @@
         let sawTooFar = false;
         let sawAngled = false;
 
-        // Capture up to 2 fast frames so mobile scans feel snappy
         for (let s = 0; s < 2; s++) {
           const result = await api
             .detectSingleFace(videoEl, opts)
@@ -659,7 +676,6 @@
           }
 
           if (samples.length >= 1 && s === 0) {
-            // 1 crisp frame is plenty for quick verification; grab 2nd only if first was borderline
             break;
           }
           if (s < 1) await sleep(30);
@@ -716,7 +732,6 @@
       const descriptors = [];
       if (!person) return descriptors;
 
-      // Support optional multi-embedding object/array if stored inside signature or extra field
       if (person.signature && typeof person.signature === 'object' && !Array.isArray(person.signature)) {
         if (Array.isArray(person.signature.embeddings)) {
           for (const emb of person.signature.embeddings) {
@@ -763,7 +778,7 @@
       return pct.toFixed(1);
     }
 
-    /* Live Face Detection Overlay Loop (throttled for smooth UI) */
+    /* Live Face Detection Overlay Loop */
     let meshPhase = 0;
     let lastTrackTime = 0;
     let isTrackingBusy = false;
@@ -867,7 +882,7 @@
       requestAnimationFrame(loop);
     }
 
-    /* Enrollment Handler (Appends 128D Sample if ID Already Exists, Up to 4 Samples) */
+    /* Enrollment Handler */
     $('btn-enroll').onclick = async () => {
       if (!isAdminAuthenticated) return;
       if (!supabaseClient) return alert('Supabase client not initialized.');
@@ -936,7 +951,7 @@
       }
     };
 
-    /* Attendance Logging Helper (Multi-Embedding Min Distance + Ambiguity Check) */
+    /* Attendance Logging Helper */
     async function handleAttendance(actionType) {
       if (!supabaseClient) return alert('Supabase client not initialized.');
 
@@ -968,17 +983,9 @@
           .filter(item => item.validVecCount > 0 && Number.isFinite(item.distance))
           .sort((a, b) => a.distance - b.distance);
 
-        console.log('[Scan Candidates]', ranked.map(r => ({
-          name: r.person.name,
-          id: r.person.id_number,
-          samples: r.validVecCount,
-          dist: Number(r.distance.toFixed(4))
-        })));
-
         const bestMatch = ranked[0] || { person: null, distance: Infinity };
         const secondMatch = ranked[1] || null;
 
-        // Guard against close/ambiguous match when multiple people are enrolled
         const hasAmbiguousRunnerUp =
           secondMatch &&
           (secondMatch.distance - bestMatch.distance) < 0.06;
@@ -1012,6 +1019,343 @@
         }
       }
     }
+
+    // ========================================================
+    // SUPABASE CONNECTION
+    // ========================================================
+    const SUPABASE_URL = 'https://ahitbnftioivzbvrenls.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_NhsYm3Tn9Um1XsyEh8ahyg_wJPO5DfP';
+    
+    let supabaseClient = null;
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) {
+      console.warn('Supabase initialization warning:', e);
+    }
+
+    // ========================================================
+    // HOMESCREEN LOCK & RESPONSIVE DEVICE DETECTION
+    // ========================================================
+    function updateLockClock() {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      if ($('lock-clock')) $('lock-clock').textContent = `${dateStr} • ${timeStr}`;
+    }
+    setInterval(updateLockClock, 1000);
+    updateLockClock();
+
+    function updateDeviceBadge() {
+      const w = window.innerWidth;
+      const label = $('device-mode-label');
+      if (!label) return;
+      if (w < 768) label.textContent = 'Mobile View';
+      else if (w < 1024) label.textContent = 'Tablet View';
+      else label.textContent = 'Desktop / PC View';
+    }
+    window.addEventListener('resize', updateDeviceBadge);
+    updateDeviceBadge();
+
+    // ========================================================
+    // FULLSCREEN MODE CONTROLLER WITH EXIT PASSCODE PROTECTION
+    // ========================================================
+    function isDocumentFullscreen() {
+      return !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+    }
+
+    async function enterFullscreen() {
+      const docEl = document.documentElement;
+      try {
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) {
+          await docEl.msRequestFullscreen();
+        }
+      } catch (err) {
+        console.warn('Enter fullscreen failed:', err);
+      }
+    }
+
+    async function exitFullscreen() {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        }
+      } catch (err) {
+        console.warn('Exit fullscreen failed:', err);
+      }
+    }
+
+    function openExitFullscreenModal(subtitleText) {
+      $('exit-fs-subtitle').textContent = subtitleText || 'Enter passcode to exit fullscreen mode.';
+      $('exit-fs-password').value = '';
+      $('exit-fs-error').classList.add('hidden');
+      $('exit-fs-modal').classList.remove('hidden');
+      setTimeout(() => $('exit-fs-password').focus(), 40);
+    }
+
+    function closeExitFullscreenModal() {
+      $('exit-fs-modal').classList.add('hidden');
+      $('exit-fs-password').value = '';
+      $('exit-fs-error').classList.add('hidden');
+    }
+
+    async function toggleFullscreenMode() {
+      if (!isDocumentFullscreen()) {
+        await enterFullscreen();
+      } else {
+        openExitFullscreenModal('Enter passcode to exit fullscreen mode.');
+      }
+    }
+
+    function syncFullscreenUI() {
+      const active = isDocumentFullscreen();
+      const headerIcon = $('fullscreen-icon');
+      const headerText = $('fullscreen-btn-text');
+      const lockIcon = $('lock-fullscreen-icon');
+      const lockText = $('lock-fullscreen-text');
+
+      if (headerIcon) {
+        headerIcon.className = active
+          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
+          : 'fa-solid fa-expand text-[11px] text-sky-400';
+      }
+      if (headerText) {
+        headerText.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+      }
+      if (lockIcon) {
+        lockIcon.className = active
+          ? 'fa-solid fa-compress text-[11px] text-emerald-400'
+          : 'fa-solid fa-expand text-[11px] text-sky-400';
+      }
+      if (lockText) {
+        lockText.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+      }
+
+      // If browser exited fullscreen via Esc / gesture without passcode authorization, prompt passcode
+      if (wasFullscreenActive && !active) {
+        if (isAuthorizedFullscreenExit) {
+          isAuthorizedFullscreenExit = false;
+        } else {
+          openExitFullscreenModal('Fullscreen exited. Enter passcode to stay out of fullscreen.');
+        }
+      }
+      wasFullscreenActive = active;
+    }
+
+    $('btn-fullscreen-toggle').onclick = toggleFullscreenMode;
+    $('btn-lock-fullscreen').onclick = toggleFullscreenMode;
+    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+      document.addEventListener(evt, syncFullscreenUI);
+    });
+
+    $('btn-exit-fs-cancel').onclick = async () => {
+      closeExitFullscreenModal();
+      if (!isDocumentFullscreen()) {
+        await enterFullscreen();
+      }
+    };
+
+    $('btn-exit-fs-confirm').onclick = async () => {
+      const entered = $('exit-fs-password').value.trim();
+      if (entered === EXIT_FULLSCREEN_PASSCODE) {
+        isAuthorizedFullscreenExit = true;
+        closeExitFullscreenModal();
+        if (isDocumentFullscreen()) {
+          await exitFullscreen();
+        }
+      } else {
+        $('exit-fs-error').classList.remove('hidden');
+        $('exit-fs-password').value = '';
+        $('exit-fs-password').focus();
+      }
+    };
+
+    $('exit-fs-password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        $('btn-exit-fs-confirm').click();
+      }
+    });
+
+    // Toggle Password Visibility on Homescreen
+    $('btn-toggle-lock-vis').onclick = () => {
+      const pwd = $('terminal-password');
+      const icon = $('lock-vis-icon');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        pwd.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    };
+
+    // Unlock Terminal Handler
+    $('terminal-unlock-form').onsubmit = (e) => {
+      e.preventDefault();
+      const inputVal = $('terminal-password').value.trim();
+      if (inputVal === TERMINAL_PASSCODE) {
+        isTerminalUnlocked = true;
+        $('terminal-lock-error').classList.add('hidden');
+        $('terminal-password').value = '';
+        $('terminal-lock-screen').classList.add('hidden');
+        $('app-shell').classList.remove('hidden');
+        $('app-shell').classList.add('animate-fade-in');
+      } else {
+        $('terminal-lock-error').classList.remove('hidden');
+        $('terminal-password').value = '';
+        $('terminal-password').focus();
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      $('terminal-password').focus();
+    });
+
+    // ========================================================
+    // STATUS BANNER & BIOMETRIC OPERATIONS
+    // ========================================================
+    const say = (msg, cls = '') => { 
+      banner.textContent = msg; 
+      banner.className = 'absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold backdrop-blur-md transition-colors duration-300 ' + 
+        (cls === 'ok' ? 'bg-emerald-700/90 text-white' : cls === 'bad' ? 'bg-rose-700/90 text-white' : 'bg-black/80 text-gray-300 border-t border-white/10');
+      
+      const badge = $('status-badge');
+      if (cls === 'ok') {
+        badge.textContent = 'Success';
+        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      } else if (cls === 'bad') {
+        badge.textContent = 'Failed';
+        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30';
+      } else {
+        badge.textContent = isCameraActive ? 'Active' : 'Standby';
+        badge.className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30';
+      }
+    };
+
+    /* Supabase Cloud Operations */
+    async function fetchPersonnel() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient.from('enrolled_personnel').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        renderPersonnelList(data || []);
+      } catch (e) {
+        console.error('Fetch personnel error:', e.message);
+      }
+    }
+
+    async function fetchLogs() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(15);
+        if (error) throw error;
+        renderLogsList(data || []);
+      } catch (e) {
+        console.error('Fetch logs error:', e.message);
+      }
+    }
+
+    function renderPersonnelList(people) {
+      if (!isAdminAuthenticated) return;
+      if (!people.length) {
+        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No active personnel enrolled in cloud.</li>';
+        return;
+      }
+      $('list').innerHTML = '';
+      for (const p of people) {
+        const li = document.createElement('li');
+        li.className = 'py-2 flex justify-between items-center text-xs';
+        li.innerHTML = `<div><strong class="text-white">${p.name}</strong> <span class="text-blue-400 font-mono">(${p.id_number})</span><br/><span class="text-[10px] text-gray-400">${p.shift}</span></div>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'px-2 py-0.5 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded text-[11px] font-semibold';
+        delBtn.textContent = 'Remove';
+        delBtn.onclick = async () => {
+          if (!confirm(`Delete ${p.name} from cloud database?`)) return;
+          await supabaseClient.from('enrolled_personnel').delete().eq('id', p.id);
+          cachedPersonnel = null;
+          fetchPersonnel();
+        };
+        li.appendChild(delBtn);
+        $('list').appendChild(li);
+      }
+    }
+
+    function renderLogsList(logs) {
+      if (!isAdminAuthenticated) return;
+      if (!logs.length) {
+        $('logs-list').innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
+        return;
+      }
+      $('logs-list').innerHTML = '';
+      for (const l of logs) {
+        const div = document.createElement('div');
+        div.className = 'p-2 rounded bg-[#0a0c10] border border-[#1f293d] flex justify-between items-center text-xs';
+        const badgeColor = l.action_type === 'Check-In' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-blue-500/15 text-blue-400';
+        div.innerHTML = `
+          <div>
+            <span class="font-bold text-white">${l.name}</span> <span class="text-[10px] text-gray-400">(${l.id_number})</span><br/>
+            <span class="text-[10px] text-sky-400">${l.shift}</span> • <span class="text-[10px] text-gray-400">${new Date(l.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${badgeColor}">${l.action_type}</span>
+        `;
+        $('logs-list').appendChild(div);
+      }
+    }
+
+    /* Admin Authentication Controls */
+    $('btn-admin-toggle').onclick = () => {
+      if (isAdminAuthenticated) {
+        isAdminAuthenticated = false;
+        $('admin-panel').classList.add('hidden');
+        $('attendance-panel').classList.remove('hidden');
+        $('admin-btn-text').textContent = "Admin";
+        $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
+      } else {
+        $('admin-password').value = '';
+        $('admin-error').classList.add('hidden');
+        $('admin-modal').classList.remove('hidden');
+        $('admin-password').focus();
+      }
+    };
+    $('btn-modal-cancel').onclick = () => $('admin-modal').classList.add('hidden');
+    $('btn-modal-login').onclick = () => {
+      if ($('admin-password').value === ADMIN_PASSCODE) {
+        isAdminAuthenticated = true;
+        $('admin-modal').classList.add('hidden');
+        $('admin-panel').classList.remove('hidden');
+        $('attendance-panel').classList.add('hidden');
+        $('admin-btn-text').textContent = "Exit Admin";
+        $('admin-icon').className = "fa-solid fa-unlock text-[11px] text-emerald-400";
+        fetchPersonnel();
+        fetchLogs();
+      } else {
+        $('admin-error').classList.remove('hidden');
+      }
+    };
+    $('admin-password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('btn-modal-login').click();
+    });
+    $('btn-admin-logout').onclick = () => {
+      isAdminAuthenticated = false;
+      $('admin-panel').classList.add('hidden');
+      $('attendance-panel').classList.remove('hidden');
+      $('admin-btn-text').textContent = "Admin";
+      $('admin-icon').className = "fa-solid fa-lock text-[11px] text-amber-400";
+    };
+    $('btn-refresh-list').onclick = () => { fetchPersonnel(); fetchLogs(); };
 
     $('btn-checkin').onclick = () => handleAttendance('Check-In');
     $('btn-checkout').onclick = () => handleAttendance('Check-Out');
