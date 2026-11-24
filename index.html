@@ -178,6 +178,7 @@
         <!-- 4. ATTENDANCE & ADMIN CONSOLE -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
+          <!-- ATTENDANCE VERIFICATION PANEL (Hidden when Admin Panel is open) -->
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
             <div class="flex items-center justify-between pb-3 border-b border-[#1f293d]">
               <span class="text-xs sm:text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -451,9 +452,14 @@
       else dot.className += 'bg-amber-400';
     }
 
+    function setAdminViewMode(open) {
+      $('admin-panel').classList.toggle('hidden', !open);
+      $('attendance-panel').classList.toggle('hidden', open);
+    }
+
     function lockAdminSession() {
       isAdminAuthenticated = false;
-      $('admin-panel').classList.add('hidden');
+      setAdminViewMode(false);
       $('admin-modal').classList.add('hidden');
       $('admin-icon').className = 'fa-solid fa-lock text-[11px] text-amber-400';
       $('admin-btn-text').textContent = 'Admin';
@@ -593,7 +599,7 @@
     /* Admin Modal & Controls */
     $('btn-admin-toggle').onclick = () => {
       if (isAdminAuthenticated) {
-        $('admin-panel').classList.toggle('hidden');
+        lockAdminSession();
         return;
       }
       $('admin-password').value = '';
@@ -611,9 +617,9 @@
       if ($('admin-password').value.trim() === ADMIN_PASSCODE) {
         isAdminAuthenticated = true;
         $('admin-modal').classList.add('hidden');
-        $('admin-panel').classList.remove('hidden');
+        setAdminViewMode(true);
         $('admin-icon').className = 'fa-solid fa-lock-open text-[11px] text-emerald-400';
-        $('admin-btn-text').textContent = 'Admin Open';
+        $('admin-btn-text').textContent = 'Close Admin';
         await refreshPersonnel();
         await refreshLogs();
       } else {
@@ -992,7 +998,7 @@
 
       const { data, error } = await supabaseClient
         .from('enrolled_personnel')
-        .select('id, full_name, id_number, default_shift, embedding')
+        .select('id, full_name, id_number, shift, default_shift, embedding')
         .order('full_name', { ascending: true });
 
       if (error) {
@@ -1008,12 +1014,13 @@
 
       listEl.innerHTML = enrolledUsers.map(u => {
         const sampleCount = extractUserEmbeddings(u).length;
+        const shiftLabel = u.shift || u.default_shift || 'Day Shift';
         return `
           <li class="py-2.5 flex items-center justify-between gap-2 text-xs">
             <div class="min-w-0">
               <p class="font-semibold text-white truncate">${escapeHtml(u.full_name)}</p>
               <p class="text-[10px] text-[#64748b] font-mono">
-                ${escapeHtml(u.id_number)} • ${escapeHtml(u.default_shift || 'Day Shift')} • ${sampleCount}/${MAX_SAMPLES_PER_USER} samples
+                ${escapeHtml(u.id_number)} • ${escapeHtml(shiftLabel)} • ${sampleCount}/${MAX_SAMPLES_PER_USER} samples
               </p>
             </div>
             <button type="button" data-remove-id="${escapeHtml(u.id)}" data-remove-name="${escapeHtml(u.full_name)}"
@@ -1281,6 +1288,7 @@
             .from('enrolled_personnel')
             .update({
               full_name: fullName,
+              shift: defaultShift,
               default_shift: defaultShift,
               embedding: updatedSamples
             })
@@ -1294,6 +1302,7 @@
             .insert({
               full_name: fullName,
               id_number: idNumber,
+              shift: defaultShift,
               default_shift: defaultShift,
               embedding: [newVector]
             });
