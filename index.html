@@ -370,10 +370,10 @@
     const ctx = overlay.getContext('2d');
 
     // =========================================================================
-    // SUPABASE CONFIGURATION (Replace with your project credentials)
+    // SUPABASE CONFIGURATION
     // =========================================================================
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const SUPABASE_URL = 'https://ahitbnftioivzbvrenls.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_NhsYm3Tn9Um1XsyEh8ahyg_wJPO5DfP';
     const supabaseClient =
       (window.supabase && SUPABASE_URL.startsWith('https://'))
         ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -986,7 +986,7 @@
     async function refreshPersonnel() {
       const listEl = $('list');
       if (!supabaseClient) {
-        listEl.innerHTML = '<li class="py-2.5 text-center text-xs text-amber-400">Set SUPABASE_URL & SUPABASE_ANON_KEY to connect cloud directory.</li>';
+        listEl.innerHTML = '<li class="py-2.5 text-center text-xs text-amber-400">Supabase client not initialized.</li>';
         return;
       }
 
@@ -1048,7 +1048,7 @@
     async function refreshLogs() {
       const logsEl = $('logs-list');
       if (!supabaseClient) {
-        logsEl.innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">Supabase not configured.</div>';
+        logsEl.innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">Supabase client not initialized.</div>';
         return;
       }
 
@@ -1253,7 +1253,7 @@
         return;
       }
       if (!supabaseClient) {
-        say('Configure SUPABASE_URL and SUPABASE_ANON_KEY to save enrollments.', 'bad');
+        say('Supabase client not initialized.', 'bad');
         return;
       }
 
