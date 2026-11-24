@@ -920,9 +920,9 @@
       }
     }
 
-    /* Multi-Sample Extraction & Runner-Up Guard */
+    /* Multi-Sample Extraction & Runner-Up Guard (reads embedding or signature) */
     function extractUserEmbeddings(user) {
-      let raw = user.embedding;
+      let raw = user.embedding ?? user.signature;
       if (typeof raw === 'string') {
         try { raw = JSON.parse(raw); } catch (e) { return []; }
       }
@@ -998,7 +998,7 @@
 
       const { data, error } = await supabaseClient
         .from('enrolled_personnel')
-        .select('id, full_name, id_number, shift, default_shift, embedding')
+        .select('id, full_name, id_number, shift, default_shift, embedding, signature')
         .order('full_name', { ascending: true });
 
       if (error) {
@@ -1273,7 +1273,7 @@
 
         const { data: existingRows, error: fetchErr } = await supabaseClient
           .from('enrolled_personnel')
-          .select('id, full_name, id_number, embedding')
+          .select('id, full_name, id_number, embedding, signature')
           .eq('id_number', idNumber)
           .limit(1);
 
@@ -1290,13 +1290,15 @@
               full_name: fullName,
               shift: defaultShift,
               default_shift: defaultShift,
-              embedding: updatedSamples
+              embedding: updatedSamples,
+              signature: JSON.stringify(updatedSamples)
             })
             .eq('id', existing.id);
 
           if (updErr) throw updErr;
           say(`Updated ${fullName} (${idNumber}) — stored ${updatedSamples.length}/${MAX_SAMPLES_PER_USER} samples.`, 'ok');
         } else {
+          const initialSamples = [newVector];
           const { error: insErr } = await supabaseClient
             .from('enrolled_personnel')
             .insert({
@@ -1304,7 +1306,8 @@
               id_number: idNumber,
               shift: defaultShift,
               default_shift: defaultShift,
-              embedding: [newVector]
+              embedding: initialSamples,
+              signature: JSON.stringify(initialSamples)
             });
 
           if (insErr) throw insErr;
