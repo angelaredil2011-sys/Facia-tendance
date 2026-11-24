@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Facia-tendance Terminal</title>
+  <title>facia-tendance</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -46,7 +46,7 @@
 </head>
 <body class="min-h-screen bg-[#0a0c10] text-[#f1f5f9] flex flex-col justify-between relative selection:bg-blue-600/30">
 
-  <!-- INITIAL HOMESCREEN / TERMINAL LOCK SCREEN -->
+  <!-- 1. INITIAL HOMESCREEN / TERMINAL LOCK SCREEN -->
   <section id="terminal-lock-screen" class="fixed inset-0 z-50 bg-[#0a0c10] flex items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.08)_0%,transparent_70%)] pointer-events-none"></div>
 
@@ -65,10 +65,10 @@
           <span class="inline-block px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-semibold tracking-widest uppercase text-blue-400 mb-1">
             Terminal Gateway
           </span>
-          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight">Facia-tendance Gateway</h1>
-          <p class="text-xs text-[#64748b] mt-0.5">Enter terminal access passcode to unlock station</p>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight lowercase">facia-tendance</h1>
+          <p class="text-xs text-[#64748b] mt-0.5">Enter 6-digit terminal passcode to unlock station</p>
         </div>
-        <div id="lock-clock" class="pt-1 font-mono text-xs text-gray-400 tracking-wider"></div>
+        <div id="lock-clock" class="pt-1 font-mono text-xs text-gray-300 tracking-wider"></div>
       </div>
 
       <form id="terminal-unlock-form" class="space-y-4">
@@ -77,10 +77,10 @@
             Station Passcode
           </label>
           <div class="relative">
-            <input type="password" id="terminal-password" inputmode="numeric" autocomplete="off" placeholder="••••••" required
+            <input type="password" id="terminal-password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••" required
                    class="w-full bg-[#0a0c10] border border-[#1f293d] focus:border-[#2563eb] rounded-xl px-4 h-12 text-center text-lg text-white tracking-[0.35em] font-mono placeholder-gray-600 focus:outline-none transition-colors" />
             <button type="button" id="btn-toggle-lock-vis" title="Show/Hide Passcode"
-                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs p-1">
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1.5 py-1 rounded">
               <i id="lock-vis-icon" class="fa-solid fa-eye"></i>
             </button>
           </div>
@@ -97,11 +97,11 @@
       </form>
 
       <div class="pt-2 border-t border-[#1f293d] flex items-center justify-between text-[10px] text-[#64748b]">
-        <span class="flex items-center gap-1.5">
+        <span id="cloud-status-pill" class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
           Supabase Cloud Ready
         </span>
-        <span id="device-mode-label" class="font-mono uppercase">Adaptive UI</span>
+        <span id="device-mode-label" class="font-mono uppercase text-gray-400">Desktop / PC View</span>
       </div>
     </div>
   </section>
@@ -110,25 +110,26 @@
   <div id="app-shell" class="hidden min-h-screen flex flex-col justify-between w-full">
 
     <header class="w-full border-b border-[#1f293d] bg-[#12161f]/95 backdrop-blur-md sticky top-0 z-30 shadow-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#2563eb]/15 border border-[#2563eb]/40 flex items-center justify-center text-[#3b82f6]">
+      <div class="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#2563eb]/15 border border-[#2563eb]/40 flex items-center justify-center text-[#3b82f6] shrink-0">
             <i class="fa-solid fa-shield-halved text-lg sm:text-xl"></i>
           </div>
-          <div>
-            <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">Facia-tendance</h1>
-            <p class="text-[10px] sm:text-xs text-[#64748b]" id="engine-tag">Face-API 128D Embedding Biometrics</p>
+          <div class="min-w-0">
+            <h1 class="text-xs sm:text-sm font-bold text-white tracking-wider lowercase truncate">facia-tendance</h1>
+            <p class="text-[10px] sm:text-xs text-[#64748b] truncate" id="engine-tag">FACE-API 128D Biometric Terminal</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <button id="btn-fullscreen-toggle" type="button" title="Toggle Fullscreen Mode"
                   class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#0a0c10] hover:bg-[#1f293d] border border-[#1f293d] text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i id="fullscreen-icon" class="fa-solid fa-expand text-[11px] text-sky-400"></i>
             <span id="fullscreen-btn-text" class="hidden sm:inline">Fullscreen</span>
           </button>
 
-          <button id="btn-admin-toggle" type="button" class="px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+          <button id="btn-admin-toggle" type="button" title="Admin Console"
+                  class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#1f293d]/80 hover:bg-[#1f293d] border border-gray-700 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
             <i id="admin-icon" class="fa-solid fa-lock text-[11px] text-amber-400"></i>
             <span id="admin-btn-text">Admin</span>
           </button>
@@ -139,7 +140,7 @@
     <main class="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col justify-center">
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
 
-        <!-- Camera Stage Viewport -->
+        <!-- 2. CAMERA & LIVE FACE OVERLAY -->
         <div class="md:col-span-6 lg:col-span-7 w-full">
           <div id="camera-stage" class="relative w-full aspect-[3/4] sm:aspect-[4/3] lg:aspect-[16/11] bg-black rounded-2xl overflow-hidden border border-[#1f293d] shadow-2xl flex items-center justify-center">
 
@@ -147,32 +148,34 @@
             <canvas id="overlay" class="absolute inset-0 w-full h-full object-cover mirror pointer-events-none z-10"></canvas>
 
             <div class="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-col gap-1.5 pointer-events-none">
-              <span id="telemetry-face" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-gray-300 flex items-center gap-1.5">
+              <span id="telemetry-face" class="px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-gray-200 flex items-center gap-1.5">
                 <span id="telemetry-dot" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400"></span>
                 <span id="telemetry-text">CAMERA STANDBY</span>
               </span>
-              <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
-                FACE-API 128D READY
+              <span id="telemetry-mesh" class="px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-white/15 text-[10px] sm:text-xs font-mono text-sky-400">
+                FACE-API 128D
               </span>
             </div>
 
             <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
-              <button id="btn-mesh-toggle" type="button" title="Toggle Face Detection Overlay" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/80 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
-                <i class="fa-solid fa-draw-polygon text-xs sm:text-sm"></i>
+              <button id="btn-mesh-toggle" type="button" title="Toggle Face Detection Overlay"
+                      class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-600/85 hover:bg-sky-500 backdrop-blur-md border border-sky-400/40 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg">
+                <i class="fa-solid fa-expand text-xs sm:text-sm"></i>
               </button>
-              <button id="btn-start-cam" type="button" class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
-                <i class="fa-solid fa-video text-[10px] sm:text-xs"></i>
+              <button id="btn-start-cam" type="button"
+                      class="h-8 sm:h-9 px-3 rounded-lg bg-[#2563eb] hover:bg-blue-600 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 shadow-lg active:scale-95 transition-all">
+                <i id="cam-btn-icon" class="fa-solid fa-video text-[10px] sm:text-xs"></i>
                 <span id="cam-btn-text">Start</span>
               </button>
             </div>
 
             <div id="banner" class="absolute bottom-0 inset-x-0 z-20 py-2.5 px-4 text-center text-xs sm:text-sm font-semibold bg-black/80 backdrop-blur-md text-gray-300 border-t border-white/10 transition-colors duration-300">
-              Tap "Start" to activate camera terminal.
+              Tap "Start" to activate front camera terminal.
             </div>
           </div>
         </div>
 
-        <!-- Attendance & Admin Panels -->
+        <!-- 4. ATTENDANCE & ADMIN CONSOLE -->
         <div class="md:col-span-6 lg:col-span-5 w-full flex flex-col gap-4">
 
           <div id="attendance-panel" class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
@@ -210,10 +213,11 @@
             </div>
 
             <p class="text-[11px] sm:text-xs text-[#64748b] text-center pt-1 leading-relaxed">
-              Center your face inside the camera guide, hold still, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
+              Center your face inside the camera brackets, look straight ahead, and tap <strong class="text-gray-300">Check-In</strong> or <strong class="text-gray-300">Check-Out</strong>.
             </p>
           </div>
 
+          <!-- PROTECTED ADMIN PANEL -->
           <div id="admin-panel" class="hidden space-y-4">
             <div class="bg-[#12161f] border border-amber-500/30 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl">
               <div class="flex items-center justify-between pb-2.5 border-b border-[#1f293d]">
@@ -227,7 +231,9 @@
               </div>
 
               <div class="space-y-2.5 pt-1">
-                <label class="text-[11px] sm:text-xs text-gray-400 font-medium block">New User Enrollment</label>
+                <label class="text-[11px] sm:text-xs text-gray-400 font-medium block">
+                  User Enrollment / Multi-Sample Update (Up to 4 samples/ID)
+                </label>
                 <div class="space-y-2.5">
                   <input type="text" id="enroll-name" placeholder="Full Employee Name" maxlength="40"
                          class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3.5 h-10 sm:h-11 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-blue-500" />
@@ -245,14 +251,14 @@
                   <button id="btn-enroll" type="button" disabled
                           class="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md">
                     <i class="fa-solid fa-user-plus text-xs"></i>
-                    <span>Enroll Face & Credentials</span>
+                    <span>Enroll / Append Face Sample</span>
                   </button>
                 </div>
               </div>
 
               <div class="pt-3 border-t border-[#1f293d] space-y-2 text-xs">
                 <div class="flex justify-between text-gray-300">
-                  <span class="text-[11px] sm:text-xs text-gray-400">Max Distance Threshold (Lower = Stricter)</span>
+                  <span class="text-[11px] sm:text-xs text-gray-400">Max Distance Threshold (0.25–0.55)</span>
                   <span id="thrv" class="font-mono text-[#3b82f6] font-bold">0.38</span>
                 </div>
                 <input type="range" id="thr" min="0.25" max="0.55" step="0.01" value="0.38"
@@ -260,27 +266,34 @@
               </div>
             </div>
 
+            <!-- CLOUD ENROLLED PERSONNEL -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-users text-[#3b82f6]"></i>
                   Cloud Enrolled Personnel
                 </strong>
-                <button id="btn-refresh-list" type="button" class="text-[11px] text-blue-400 hover:text-blue-300">Refresh</button>
+                <button id="btn-refresh-list" type="button" class="text-[11px] text-blue-400 hover:text-blue-300 font-medium">
+                  Refresh
+                </button>
               </div>
-              <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-40 sm:max-h-48">
+              <ul id="list" class="divide-y divide-[#1f293d] overflow-y-auto max-h-44 sm:max-h-52">
                 <li class="py-2.5 text-center text-xs text-[#64748b] italic">Loading cloud directory...</li>
               </ul>
             </div>
 
+            <!-- LIVE ATTENDANCE LOGS -->
             <div class="bg-[#12161f] border border-[#1f293d] rounded-2xl p-4 sm:p-5 shadow-xl space-y-2.5">
               <div class="flex items-center justify-between pb-2 border-b border-[#1f293d]">
                 <strong class="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
                   Live Attendance Logs (Cloud)
                 </strong>
+                <button id="btn-refresh-logs" type="button" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium">
+                  Refresh
+                </button>
               </div>
-              <div id="logs-list" class="space-y-1.5 overflow-y-auto max-h-40 sm:max-h-48 text-xs text-gray-300">
+              <div id="logs-list" class="space-y-1.5 overflow-y-auto max-h-44 sm:max-h-52 text-xs text-gray-300">
                 <div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>
               </div>
             </div>
@@ -291,7 +304,7 @@
     </main>
 
     <footer class="w-full px-4 py-3 text-center text-[10px] sm:text-xs text-[#64748b] border-t border-[#1f293d]/50">
-      Facia-tendance Terminal • Supabase Cloud Synced • 128D Face Embeddings
+      facia-tendance Terminal • Supabase Cloud Synced • 128D Face Embeddings
     </footer>
   </div>
 
@@ -303,12 +316,12 @@
           <i class="fa-solid fa-lock"></i>
         </div>
         <h3 class="text-sm sm:text-base font-bold text-white">Administrator Access</h3>
-        <p class="text-[11px] sm:text-xs text-[#64748b]">Enter security credentials to access management console.</p>
+        <p class="text-[11px] sm:text-xs text-[#64748b]">Enter 6-digit security passcode to access management console.</p>
       </div>
 
       <div class="space-y-2">
-        <input type="password" id="admin-password" placeholder="Passcode"
-               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3 h-11 text-center text-sm text-white tracking-widest focus:outline-none focus:border-amber-500" />
+        <input type="password" id="admin-password" inputmode="numeric" maxlength="6" placeholder="••••••"
+               class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3 h-11 text-center text-sm text-white tracking-widest font-mono focus:outline-none focus:border-amber-500" />
         <p id="admin-error" class="text-[11px] text-rose-500 text-center hidden">Invalid passcode.</p>
       </div>
 
@@ -331,13 +344,13 @@
           <i class="fa-solid fa-compress"></i>
         </div>
         <h3 class="text-sm sm:text-base font-bold text-white">Exit Fullscreen Mode</h3>
-        <p id="exit-fs-subtitle" class="text-[11px] sm:text-xs text-[#64748b]">Enter passcode to exit fullscreen mode.</p>
+        <p class="text-[11px] sm:text-xs text-[#64748b]">Enter 6-digit passcode to exit fullscreen. Admin session will lock.</p>
       </div>
 
       <div class="space-y-2">
-        <input type="password" id="exit-fs-password" inputmode="numeric" placeholder="Passcode"
+        <input type="password" id="exit-fs-password" inputmode="numeric" maxlength="6" placeholder="••••••"
                class="w-full bg-[#0a0c10] border border-[#1f293d] rounded-xl px-3 h-11 text-center text-sm text-white tracking-widest font-mono focus:outline-none focus:border-sky-500" />
-        <p id="exit-fs-error" class="text-[11px] text-rose-500 text-center hidden">Invalid passcode.</p>
+        <p id="exit-fs-error" class="text-[11px] text-rose-500 text-center hidden">Invalid fullscreen exit passcode.</p>
       </div>
 
       <div class="grid grid-cols-2 gap-2.5">
@@ -356,7 +369,9 @@
     const video = $('webcam'), overlay = $('overlay'), banner = $('banner');
     const ctx = overlay.getContext('2d');
 
-    // Replace with your Supabase project credentials
+    // =========================================================================
+    // SUPABASE CONFIGURATION (Replace with your project credentials)
+    // =========================================================================
     const SUPABASE_URL = 'YOUR_SUPABASE_URL';
     const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
     const supabaseClient =
@@ -364,10 +379,13 @@
         ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
         : null;
 
-    // Passcodes (replace before production deployment)
+    // 6-Digit Passcodes
     const TERMINAL_PASSCODE = '123587';
     const ADMIN_PASSCODE = '123587';
     const EXIT_FULLSCREEN_PASSCODE = '123587';
+
+    const MAX_SAMPLES_PER_USER = 4;
+    const RUNNER_UP_MARGIN = 0.06;
 
     let isTerminalUnlocked = false;
     let isAdminAuthenticated = false;
@@ -379,7 +397,7 @@
     let showMesh = true;
     let faceApiReady = false;
     let isScanningBusy = false;
-    let overlayTimer = null;
+    let trackingTimer = null;
     let enrolledUsers = [];
 
     const MODEL_URLS = [
@@ -389,6 +407,14 @@
     let modelLoadPromise = null;
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
 
     function say(msg, mode = '') {
       banner.textContent = msg;
@@ -402,28 +428,60 @@
       }
     }
 
+    function setStatusBadge(state) {
+      const badge = $('status-badge');
+      const map = {
+        standby: ['Standby', 'bg-amber-500/10 text-amber-400 border-amber-500/30'],
+        active:  ['Active',  'bg-sky-500/10 text-sky-400 border-sky-500/30'],
+        success: ['Success', 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'],
+        failed:  ['Failed',  'bg-rose-500/10 text-rose-400 border-rose-500/30']
+      };
+      const [label, cls] = map[state] || map.standby;
+      badge.textContent = label;
+      badge.className = `px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold border ${cls}`;
+    }
+
     function setTelemetry(state, text) {
       $('telemetry-text').textContent = text;
       const dot = $('telemetry-dot');
       dot.className = 'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ';
       if (state === 'ok') dot.className += 'bg-emerald-400';
       else if (state === 'bad') dot.className += 'bg-rose-500';
+      else if (state === 'scan') dot.className += 'bg-sky-400 animate-pulse';
       else dot.className += 'bg-amber-400';
     }
 
-    /* Clock & Device Label */
+    function lockAdminSession() {
+      isAdminAuthenticated = false;
+      $('admin-panel').classList.add('hidden');
+      $('admin-modal').classList.add('hidden');
+      $('admin-icon').className = 'fa-solid fa-lock text-[11px] text-amber-400';
+      $('admin-btn-text').textContent = 'Admin';
+    }
+
+    /* =========================================================================
+       1. LIVE CLOCK, ADAPTIVE VIEWPORT LABEL & TERMINAL GATEWAY
+       ========================================================================= */
     function updateClock() {
       const now = new Date();
       $('lock-clock').textContent = now.toLocaleString(undefined, {
-        weekday: 'short', month: 'short', day: 'numeric',
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
     }
     updateClock();
     setInterval(updateClock, 1000);
-    $('device-mode-label').textContent = window.innerWidth < 768 ? 'Mobile UI' : 'Terminal UI';
 
-    /* Terminal Lock & Fullscreen */
+    function updateDeviceViewportLabel() {
+      const w = window.innerWidth;
+      let label = 'Desktop / PC View';
+      if (w < 640) label = 'Mobile View';
+      else if (w < 1024) label = 'Tablet View';
+      $('device-mode-label').textContent = label;
+    }
+    updateDeviceViewportLabel();
+    window.addEventListener('resize', updateDeviceViewportLabel);
+
     $('btn-toggle-lock-vis').onclick = () => {
       const inp = $('terminal-password');
       const isPw = inp.type === 'password';
@@ -445,6 +503,7 @@
       }
     };
 
+    /* Fullscreen Mode Toggle & Passcode-Protected Exit */
     function isFullscreen() {
       return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
     }
@@ -453,60 +512,83 @@
       const active = isFullscreen();
       wasFullscreenActive = active;
       ['lock-fullscreen-icon', 'fullscreen-icon'].forEach(id => {
-        if ($(id)) $(id).className = active ? 'fa-solid fa-compress text-[11px] text-sky-400' : 'fa-solid fa-expand text-[11px] text-sky-400';
+        if ($(id)) $(id).className = active
+          ? 'fa-solid fa-compress text-[11px] text-sky-400'
+          : 'fa-solid fa-expand text-[11px] text-sky-400';
       });
       ['lock-fullscreen-text', 'fullscreen-btn-text'].forEach(id => {
         if ($(id)) $(id).textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
       });
     }
 
-    async function requestAppFullscreen() {
+    async function enterFullscreen() {
       const el = document.documentElement;
       if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
       syncFullscreenUI();
     }
 
-    async function exitAppFullscreen() {
+    async function performAuthorizedFullscreenExit() {
       isAuthorizedFullscreenExit = true;
-      if (document.exitFullscreen) await document.exitFullscreen();
-      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-      isAuthorizedFullscreenExit = false;
-      syncFullscreenUI();
+      lockAdminSession();
+      try {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      } finally {
+        isAuthorizedFullscreenExit = false;
+        syncFullscreenUI();
+      }
     }
 
-    function openExitFullscreenModal() {
+    function openExitFullscreenPrompt() {
       $('exit-fs-password').value = '';
       $('exit-fs-error').classList.add('hidden');
       $('exit-fs-modal').classList.remove('hidden');
       setTimeout(() => $('exit-fs-password').focus(), 50);
     }
 
-    function handleFullscreenButtonClick() {
-      if (isFullscreen()) openExitFullscreenModal();
-      else requestAppFullscreen().catch(() => {});
+    function handleFullscreenToggleClick() {
+      if (isFullscreen()) {
+        openExitFullscreenPrompt();
+      } else {
+        enterFullscreen().catch(() => {});
+      }
     }
 
-    $('btn-lock-fullscreen').onclick = handleFullscreenButtonClick;
-    $('btn-fullscreen-toggle').onclick = handleFullscreenButtonClick;
+    $('btn-lock-fullscreen').onclick = handleFullscreenToggleClick;
+    $('btn-fullscreen-toggle').onclick = handleFullscreenToggleClick;
 
-    $('btn-exit-fs-cancel').onclick = () => $('exit-fs-modal').classList.add('hidden');
+    $('btn-exit-fs-cancel').onclick = () => {
+      $('exit-fs-modal').classList.add('hidden');
+    };
+
+    $('exit-fs-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') $('btn-exit-fs-confirm').click();
+    });
+
     $('btn-exit-fs-confirm').onclick = async () => {
       if ($('exit-fs-password').value.trim() === EXIT_FULLSCREEN_PASSCODE) {
         $('exit-fs-modal').classList.add('hidden');
-        await exitAppFullscreen().catch(() => {});
+        await performAuthorizedFullscreenExit().catch(() => {});
       } else {
         $('exit-fs-error').classList.remove('hidden');
       }
     };
 
-    document.addEventListener('fullscreenchange', () => {
+    function handleFullscreenChange() {
       if (wasFullscreenActive && !isFullscreen() && !isAuthorizedFullscreenExit) {
-        requestAppFullscreen().then(openExitFullscreenModal).catch(() => {});
+        enterFullscreen().then(openExitFullscreenPrompt).catch(() => {
+          lockAdminSession();
+          syncFullscreenUI();
+        });
       } else {
+        if (!isFullscreen()) lockAdminSession();
         syncFullscreenUI();
       }
-    });
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
     /* Admin Modal & Controls */
     $('btn-admin-toggle').onclick = () => {
@@ -520,32 +602,35 @@
       setTimeout(() => $('admin-password').focus(), 50);
     };
 
+    $('admin-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') $('btn-modal-login').click();
+    });
+
     $('btn-modal-cancel').onclick = () => $('admin-modal').classList.add('hidden');
-    $('btn-modal-login').onclick = () => {
+    $('btn-modal-login').onclick = async () => {
       if ($('admin-password').value.trim() === ADMIN_PASSCODE) {
         isAdminAuthenticated = true;
         $('admin-modal').classList.add('hidden');
         $('admin-panel').classList.remove('hidden');
         $('admin-icon').className = 'fa-solid fa-lock-open text-[11px] text-emerald-400';
         $('admin-btn-text').textContent = 'Admin Open';
+        await refreshPersonnel();
+        await refreshLogs();
       } else {
         $('admin-error').classList.remove('hidden');
       }
     };
 
-    $('btn-admin-logout').onclick = () => {
-      isAdminAuthenticated = false;
-      $('admin-panel').classList.add('hidden');
-      $('admin-icon').className = 'fa-solid fa-lock text-[11px] text-amber-400';
-      $('admin-btn-text').textContent = 'Admin';
-    };
+    $('btn-admin-logout').onclick = lockAdminSession;
 
     $('thr').oninput = () => {
       $('thrv').textContent = Number($('thr').value).toFixed(2);
     };
 
-    /* Face-API Loader */
-    function loadScriptDynamic(url, timeoutMs = 6000) {
+    /* =========================================================================
+       3. FACE-API MODEL LOADER & 128D EMBEDDING ENGINE
+       ========================================================================= */
+    function loadScriptDynamic(url, timeoutMs = 7000) {
       return new Promise((resolve, reject) => {
         const existing = Array.from(document.scripts).find(sc => sc.src === url);
         if (existing && window.faceapi) return resolve(true);
@@ -584,11 +669,11 @@
       if (modelLoadPromise) return modelLoadPromise;
 
       modelLoadPromise = (async () => {
-        $('telemetry-mesh').textContent = 'LOADING 128D MODELS…';
+        $('telemetry-mesh').textContent = 'FACE-API 128D: LOADING…';
         const loaded = await ensureFaceApiLoaded();
         if (!loaded || !window.faceapi) {
           modelLoadPromise = null;
-          throw new Error('Face recognition library failed to load.');
+          throw new Error('Face-API library failed to load.');
         }
 
         if (faceapi.tf) {
@@ -609,20 +694,19 @@
               faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl)
             ]);
             faceApiReady = true;
-            $('telemetry-mesh').textContent = '128D EMBEDDING READY';
+            $('telemetry-mesh').textContent = 'FACE-API 128D: READY';
             return faceapi;
           } catch (err) {
             lastErr = err;
           }
         }
         modelLoadPromise = null;
-        throw lastErr || new Error('Failed to load model weights.');
+        throw lastErr || new Error('Failed to load Face-API model weights.');
       })();
 
       return modelLoadPromise;
     }
 
-    /* Accurate Scanning & Quality Engine */
     function getDetectorOptions() {
       return new faceapi.TinyFaceDetectorOptions({
         inputSize: 224,
@@ -640,389 +724,599 @@
       return arr.map(v => (Number(v) || 0) / norm);
     }
 
-    function computeComponentMedian(vectors) {
-      if (!vectors.length) return [];
-      const dims = vectors[0].length;
-      const med = new Array(dims).fill(0);
-      const col = new Array(vectors.length);
-
-      for (let d = 0; d < dims; d++) {
-        for (let i = 0; i < vectors.length; i++) col[i] = vectors[i][d];
-        col.sort((a, b) => a - b);
-        const mid = Math.floor(col.length / 2);
-        med[d] = col.length % 2 !== 0 ? col[mid] : (col[mid - 1] + col[mid]) / 2;
+    function euclideanDist(a, b) {
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || a.length === 0) {
+        return Infinity;
       }
-      return l2NormalizeVec(med);
-    }
-
-    function avgPoint(pts) {
-      let sx = 0, sy = 0;
-      for (const p of pts) { sx += p.x; sy += p.y; }
-      return { x: sx / pts.length, y: sy / pts.length };
-    }
-
-    function validateFaceQuality(result, videoEl) {
-      if (!result || !result.detection || !result.detection.box) {
-        return { ok: false, reason: 'no_face' };
-      }
-
-      const score = Number(result.detection.score || 0);
-      if (score < 0.55) {
-        return { ok: false, reason: 'low_confidence' };
-      }
-
-      const box = result.detection.box;
-      const vw = videoEl.videoWidth || 640;
-      const vh = videoEl.videoHeight || 480;
-      const minDim = Math.min(vw, vh);
-
-      if (Math.max(box.width, box.height) < minDim * 0.28) {
-        return { ok: false, reason: 'too_far' };
-      }
-
-      const centerX = box.x + box.width / 2;
-      const centerY = box.y + box.height / 2;
-      if (Math.abs(centerX - vw / 2) > vw * 0.24 || Math.abs(centerY - vh / 2) > vh * 0.24) {
-        return { ok: false, reason: 'off_center' };
-      }
-
-      if (result.landmarks) {
-        const leftEye = avgPoint(result.landmarks.getLeftEye());
-        const rightEye = avgPoint(result.landmarks.getRightEye());
-        const nose = avgPoint(result.landmarks.getNose());
-
-        const dx = rightEye.x - leftEye.x;
-        const dy = rightEye.y - leftEye.y;
-        const eyeSpan = Math.hypot(dx, dy);
-
-        const tiltDeg = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
-        if (eyeSpan > 8 && tiltDeg > 22) {
-          return { ok: false, reason: 'tilted' };
-        }
-
-        if (eyeSpan > 8) {
-          const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-          const noseOffsetRatio = Math.abs(nose.x - eyeCenterX) / eyeSpan;
-          if (noseOffsetRatio > 0.32) {
-            return { ok: false, reason: 'angled' };
-          }
-        }
-      }
-
-      return { ok: true, reason: 'ok' };
-    }
-
-    async function captureFaceEmbedding(videoEl, requiredSamples = 3) {
-      if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
-        throw new Error('Camera stream not active or ready.');
-      }
-      if (isScanningBusy) {
-        throw new Error('Scan already in progress. Please wait.');
-      }
-
-      isScanningBusy = true;
-      try {
-        const api = await loadFaceApiModels();
-        const opts = getDetectorOptions();
-        const samples = [];
-        let lastFailReason = 'no_face';
-
-        const maxAttempts = requiredSamples * 2 + 2;
-        for (let attempt = 0; attempt < maxAttempts && samples.length < requiredSamples; attempt++) {
-          const result = await api
-            .detectSingleFace(videoEl, opts)
-            .withFaceLandmarks()
-            .withFaceDescriptor();
-
-          const q = validateFaceQuality(result, videoEl);
-          if (!q.ok) {
-            lastFailReason = q.reason;
-          } else if (result?.descriptor) {
-            samples.push(l2NormalizeVec(Array.from(result.descriptor)));
-          }
-
-          if (samples.length < requiredSamples && attempt < maxAttempts - 1) {
-            await sleep(120);
-          }
-        }
-
-        if (samples.length < 2) {
-          const messages = {
-            too_far: 'Move closer to the camera.',
-            angled: 'Look straight at the camera.',
-            tilted: 'Keep your head level.',
-            off_center: 'Center your face inside the camera frame.',
-            low_confidence: 'Improve lighting and hold still.',
-            no_face: 'No clear face detected.'
-          };
-          throw new Error(messages[lastFailReason] || 'Could not capture a clear face scan.');
-        }
-
-        return computeComponentMedian(samples);
-      } finally {
-        isScanningBusy = false;
-      }
-    }
-
-    function euclideanDistance(a, b) {
       let sum = 0;
       for (let i = 0; i < a.length; i++) {
-        const diff = a[i] - b[i];
-        sum += diff * diff;
+        const d = a[i] - b[i];
+        sum += d * d;
       }
       return Math.sqrt(sum);
     }
 
-    function cosineSimilarity(a, b) {
-      let dot = 0, normA = 0, normB = 0;
-      for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-      }
-      return dot / ((Math.sqrt(normA) * Math.sqrt(normB)) || 1);
+    function computePoseSymmetryRatio(landmarks) {
+      if (!landmarks || !landmarks.positions || landmarks.positions.length < 68) return 1;
+      const pts = landmarks.positions;
+      const nose = pts[30];
+      const leftEye = pts[36];
+      const rightEye = pts[45];
+      const eyeMidX = (leftEye.x + rightEye.x) / 2;
+      const eyeWidth = Math.max(1, Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y));
+      return Math.abs(nose.x - eyeMidX) / eyeWidth;
     }
 
-    function findBestFaceMatch(probeVec, users, maxEuclidean = 0.38, minCosine = 0.90) {
-      const normProbe = l2NormalizeVec(probeVec);
-      let best = null;
+    function componentWiseMedian(vectors) {
+      const dim = vectors[0].length;
+      const med = new Array(dim);
+      const col = new Array(vectors.length);
+      const mid = Math.floor(vectors.length / 2);
 
-      for (const user of users) {
-        if (!Array.isArray(user.embedding) || user.embedding.length !== normProbe.length) continue;
-        const target = l2NormalizeVec(user.embedding);
-        const dist = euclideanDistance(normProbe, target);
-        const sim = cosineSimilarity(normProbe, target);
+      for (let i = 0; i < dim; i++) {
+        for (let j = 0; j < vectors.length; j++) col[j] = vectors[j][i];
+        col.sort((a, b) => a - b);
+        med[i] = vectors.length % 2 === 1 ? col[mid] : (col[mid - 1] + col[mid]) / 2;
+      }
+      return l2NormalizeVec(med);
+    }
 
-        if (dist <= maxEuclidean && sim >= minCosine) {
-          if (!best || dist < best.distance) {
-            best = { user, distance: dist, similarity: sim };
-          }
+    /* =========================================================================
+       2. LIVE FACE OVERLAY (CORNER BRACKETS & SEARCHING DASHED GUIDE)
+       ========================================================================= */
+    function syncCanvasSize() {
+      if (video.videoWidth && video.videoHeight) {
+        if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
         }
       }
-      return best;
     }
 
-    /* Live Overlay Loop */
-    function drawGuideBox(status = 'standby', box = null) {
+    function drawSearchingGuide() {
       ctx.clearRect(0, 0, overlay.width, overlay.height);
-      if (!showMesh) return;
+      if (!showMesh || !overlay.width || !overlay.height) return;
 
-      const w = overlay.width;
-      const h = overlay.height;
-      const guideW = Math.min(w, h) * 0.52;
-      const guideH = guideW * 1.2;
-      const gx = (w - guideW) / 2;
-      const gy = (h - guideH) / 2;
+      const gw = overlay.width * 0.46;
+      const gh = overlay.height * 0.56;
+      const gx = (overlay.width - gw) / 2;
+      const gy = (overlay.height - gh) / 2;
 
       ctx.save();
-      ctx.strokeStyle = status === 'ok' ? 'rgba(52, 211, 153, 0.7)' : 'rgba(56, 189, 248, 0.45)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 6]);
-      ctx.strokeRect(gx, gy, guideW, guideH);
-      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.lineWidth = Math.max(2, Math.round(overlay.width / 260));
+      ctx.setLineDash([10, 8]);
+      ctx.strokeRect(gx, gy, gw, gh);
+      ctx.restore();
+    }
 
-      if (box) {
-        ctx.strokeStyle = status === 'ok' ? '#10b981' : '#f59e0b';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(box.x, box.y, box.width, box.height);
+    function drawCornerBrackets(box, isGood = true, label = '') {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      if (!showMesh || !box) return;
+
+      const { x, y, width, height } = box;
+      const len = Math.max(14, Math.min(width, height) * 0.22);
+      const lw = Math.max(3, Math.round(overlay.width / 180));
+      const color = isGood ? '#22c55e' : '#f59e0b';
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+      ctx.moveTo(x + width - len, y); ctx.lineTo(x + width, y); ctx.lineTo(x + width, y + len);
+      ctx.moveTo(x, y + height - len); ctx.lineTo(x, y + height); ctx.lineTo(x + len, y + height);
+      ctx.moveTo(x + width - len, y + height); ctx.lineTo(x + width, y + height); ctx.lineTo(x + width, y + height - len);
+      ctx.stroke();
+
+      if (label) {
+        ctx.scale(-1, 1);
+        ctx.font = `bold ${Math.max(12, Math.round(overlay.width / 36))}px system-ui, sans-serif`;
+        ctx.fillStyle = color;
+        ctx.fillText(label, -(x + width), Math.max(18, y - 8));
       }
       ctx.restore();
     }
 
-    function startOverlayLoop() {
-      if (overlayTimer) clearInterval(overlayTimer);
-      overlayTimer = setInterval(async () => {
-        if (!isCameraActive || isScanningBusy || !faceApiReady || !window.faceapi) return;
-        try {
-          const det = await faceapi.detectSingleFace(video, getDetectorOptions());
-          if (!det) {
-            setTelemetry('warn', 'NO FACE DETECTED');
-            drawGuideBox('standby', null);
-            return;
-          }
-          const q = validateFaceQuality({ detection: det }, video);
-          if (q.ok) {
-            setTelemetry('ok', `ALIGNED (${Math.round(det.score * 100)}%)`);
-            drawGuideBox('ok', det.box);
-          } else {
-            setTelemetry('warn', q.reason.toUpperCase().replace('_', ' '));
-            drawGuideBox('standby', det.box);
-          }
-        } catch (e) {}
-      }, 260);
+    async function runLiveTrackingStep() {
+      if (!isCameraActive || isScanningBusy || !faceApiReady || video.readyState < 2) return;
+      try {
+        syncCanvasSize();
+        const det = await faceapi.detectSingleFace(video, getDetectorOptions()).withFaceLandmarks();
+        if (!isCameraActive || isScanningBusy) return;
+
+        if (!det) {
+          setTelemetry('scan', 'SEARCHING FACE…');
+          drawSearchingGuide();
+          return;
+        }
+
+        const box = det.detection.box;
+        const minDim = Math.min(video.videoWidth, video.videoHeight);
+        const sizeOk = (Math.min(box.width, box.height) / minDim) >= 0.18;
+        const poseOk = computePoseSymmetryRatio(det.landmarks) <= 0.24;
+        const locked = sizeOk && poseOk;
+
+        if (locked) {
+          setTelemetry('ok', 'FACE LOCKED');
+          drawCornerBrackets(box, true, `LOCKED ${(det.detection.score * 100).toFixed(0)}%`);
+        } else {
+          setTelemetry('warn', !sizeOk ? 'MOVE CLOSER' : 'LOOK STRAIGHT');
+          drawCornerBrackets(box, false, !sizeOk ? 'MOVE CLOSER' : 'ALIGN FACE');
+        }
+      } catch (e) {}
     }
 
-    /* Camera Control */
-    async function initCamera() {
-      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-      video.classList.add('mirror');
-      overlay.classList.add('mirror');
+    function startBackgroundTracking() {
+      stopBackgroundTracking();
+      trackingTimer = setInterval(runLiveTrackingStep, 320);
+    }
 
-      const constraints = [
-        { video: { facingMode: { exact: 'user' }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
-        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+    function stopBackgroundTracking() {
+      if (trackingTimer) {
+        clearInterval(trackingTimer);
+        trackingTimer = null;
+      }
+    }
+
+    /* Embedding Capture & Quality Gate (pauses background tracking during scan) */
+    async function captureSingleQualityEmbedding() {
+      if (!isCameraActive || !video.videoWidth || !video.videoHeight) {
+        throw new Error('Camera is not active.');
+      }
+      await loadFaceApiModels();
+      syncCanvasSize();
+
+      const result = await faceapi
+        .detectSingleFace(video, getDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!result || !result.descriptor) {
+        drawSearchingGuide();
+        throw new Error('No face detected. Center your face inside the brackets.');
+      }
+
+      const box = result.detection.box;
+      const minDim = Math.min(video.videoWidth, video.videoHeight);
+      const faceSizeRatio = Math.min(box.width, box.height) / minDim;
+      if (faceSizeRatio < 0.18) {
+        drawCornerBrackets(box, false, 'MOVE CLOSER');
+        throw new Error('Face too far. Move closer to the camera.');
+      }
+
+      const symRatio = computePoseSymmetryRatio(result.landmarks);
+      if (symRatio > 0.24) {
+        drawCornerBrackets(box, false, 'LOOK STRAIGHT');
+        throw new Error('Look straight at the camera for accurate matching.');
+      }
+
+      drawCornerBrackets(box, true, `CAPTURED ${(result.detection.score * 100).toFixed(0)}%`);
+      return l2NormalizeVec(Array.from(result.descriptor));
+    }
+
+    async function captureMedianEmbedding(samples = 3, delayMs = 160) {
+      stopBackgroundTracking();
+      try {
+        const vectors = [];
+        for (let i = 0; i < samples; i++) {
+          setTelemetry('scan', `CAPTURING ${i + 1}/${samples}`);
+          say(`Capturing biometric frame ${i + 1} of ${samples}… hold still`);
+          const vec = await captureSingleQualityEmbedding();
+          vectors.push(vec);
+          if (i < samples - 1) await sleep(delayMs);
+        }
+        return componentWiseMedian(vectors);
+      } finally {
+        if (isCameraActive) startBackgroundTracking();
+      }
+    }
+
+    /* Multi-Sample Extraction & Runner-Up Guard */
+    function extractUserEmbeddings(user) {
+      let raw = user.embedding;
+      if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (e) { return []; }
+      }
+      if (!Array.isArray(raw) || raw.length === 0) return [];
+      if (typeof raw[0] === 'number') {
+        return [l2NormalizeVec(raw)];
+      }
+      if (Array.isArray(raw[0])) {
+        return raw.filter(v => Array.isArray(v) && v.length === 128).map(l2NormalizeVec);
+      }
+      return [];
+    }
+
+    function findBestMatchWithRunnerUpGuard(probeEmbedding) {
+      const threshold = Number($('thr').value) || 0.38;
+      const ranked = [];
+
+      for (const user of enrolledUsers) {
+        const samples = extractUserEmbeddings(user);
+        if (!samples.length) continue;
+
+        let minUserDist = Infinity;
+        for (const s of samples) {
+          const d = euclideanDist(probeEmbedding, s);
+          if (d < minUserDist) minUserDist = d;
+        }
+        ranked.push({ user, distance: minUserDist });
+      }
+
+      ranked.sort((a, b) => a.distance - b.distance);
+
+      if (!ranked.length) {
+        return { match: false, reason: 'No valid biometric templates found.' };
+      }
+
+      const best = ranked[0];
+      const runnerUp = ranked[1] || null;
+
+      if (best.distance > threshold) {
+        return {
+          match: false,
+          reason: `Face not recognized (distance ${best.distance.toFixed(2)} > ${threshold.toFixed(2)}).`,
+          distance: best.distance
+        };
+      }
+
+      if (runnerUp && (runnerUp.distance - best.distance) < RUNNER_UP_MARGIN) {
+        return {
+          match: false,
+          reason: `Ambiguous match between ${best.user.full_name} and ${runnerUp.user.full_name}. Re-scan in better lighting.`,
+          distance: best.distance
+        };
+      }
+
+      const similarityPct = Math.max(0, Math.min(100, Math.round((1 - best.distance) * 100)));
+      return {
+        match: true,
+        user: best.user,
+        distance: best.distance,
+        similarity: similarityPct
+      };
+    }
+
+    /* =========================================================================
+       4. SUPABASE CLOUD SYNC (PERSONNEL & ATTENDANCE LOGS)
+       ========================================================================= */
+    async function refreshPersonnel() {
+      const listEl = $('list');
+      if (!supabaseClient) {
+        listEl.innerHTML = '<li class="py-2.5 text-center text-xs text-amber-400">Set SUPABASE_URL & SUPABASE_ANON_KEY to connect cloud directory.</li>';
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('enrolled_personnel')
+        .select('id, full_name, id_number, default_shift, embedding')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        listEl.innerHTML = `<li class="py-2.5 text-center text-xs text-rose-400">${escapeHtml(error.message)}</li>`;
+        return;
+      }
+
+      enrolledUsers = data || [];
+      if (!enrolledUsers.length) {
+        listEl.innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No enrolled personnel yet.</li>';
+        return;
+      }
+
+      listEl.innerHTML = enrolledUsers.map(u => {
+        const sampleCount = extractUserEmbeddings(u).length;
+        return `
+          <li class="py-2.5 flex items-center justify-between gap-2 text-xs">
+            <div class="min-w-0">
+              <p class="font-semibold text-white truncate">${escapeHtml(u.full_name)}</p>
+              <p class="text-[10px] text-[#64748b] font-mono">
+                ${escapeHtml(u.id_number)} • ${escapeHtml(u.default_shift || 'Day Shift')} • ${sampleCount}/${MAX_SAMPLES_PER_USER} samples
+              </p>
+            </div>
+            <button type="button" data-remove-id="${escapeHtml(u.id)}" data-remove-name="${escapeHtml(u.full_name)}"
+                    class="btn-remove-person px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-800/80 border border-rose-500/30 text-rose-300 hover:text-white text-[10px] font-semibold shrink-0 transition-colors">
+              Remove
+            </button>
+          </li>
+        `;
+      }).join('');
+
+      listEl.querySelectorAll('.btn-remove-person').forEach(btn => {
+        btn.onclick = async () => {
+          const rowId = btn.getAttribute('data-remove-id');
+          const personName = btn.getAttribute('data-remove-name');
+          if (!supabaseClient || !rowId) return;
+          btn.disabled = true;
+          btn.textContent = '…';
+          const { error: delErr } = await supabaseClient
+            .from('enrolled_personnel')
+            .delete()
+            .eq('id', rowId);
+          if (delErr) {
+            say(`Failed to remove ${personName}: ${delErr.message}`, 'bad');
+          } else {
+            say(`Removed ${personName} from directory.`, 'ok');
+            await refreshPersonnel();
+          }
+        };
+      });
+    }
+
+    async function refreshLogs() {
+      const logsEl = $('logs-list');
+      if (!supabaseClient) {
+        logsEl.innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">Supabase not configured.</div>';
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('attendance_logs')
+        .select('id, full_name, id_number, event_type, shift, similarity, distance, created_at')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        logsEl.innerHTML = `<div class="py-2 text-center text-[11px] text-rose-400">${escapeHtml(error.message)}</div>`;
+        return;
+      }
+
+      if (!data || !data.length) {
+        logsEl.innerHTML = '<div class="py-2 text-center text-[11px] text-[#64748b] italic">No attendance records yet.</div>';
+        return;
+      }
+
+      logsEl.innerHTML = data.map(row => {
+        const dt = row.created_at ? new Date(row.created_at) : null;
+        const timeStr = dt
+          ? dt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '';
+        const badgeColor = row.event_type === 'Check-In'
+          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+          : 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+        const simLabel = row.similarity != null
+          ? `${row.similarity}% match`
+          : `dist ${Number(row.distance || 0).toFixed(2)}`;
+
+        return `
+          <div class="p-2 rounded-lg bg-[#0a0c10] border border-[#1f293d] flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-medium text-white truncate">
+                ${escapeHtml(row.full_name)}
+                <span class="text-[10px] text-[#64748b] font-mono">(${escapeHtml(row.id_number)})</span>
+              </p>
+              <p class="text-[10px] text-[#64748b]">${escapeHtml(row.shift)} • ${simLabel}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="inline-block px-2 py-0.5 rounded border text-[10px] font-semibold ${badgeColor}">
+                ${escapeHtml(row.event_type)}
+              </span>
+              <p class="text-[10px] text-[#64748b] font-mono mt-0.5">${timeStr}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setActionButtonsEnabled(enabled) {
+      $('btn-checkin').disabled = !enabled;
+      $('btn-checkout').disabled = !enabled;
+      $('btn-enroll').disabled = !enabled;
+    }
+
+    /* =========================================================================
+       FRONT CAMERA INITIALIZATION WITH FALLBACK CONSTRAINTS
+       ========================================================================= */
+    async function openFrontCameraStream() {
+      const constraintList = [
+        { video: { facingMode: { exact: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 540 } }, audio: false },
         { video: { facingMode: 'user' }, audio: false },
         { video: true, audio: false }
       ];
-
-      let stream = null;
-      for (const c of constraints) {
+      let lastError = null;
+      for (const constraints of constraintList) {
         try {
-          stream = await navigator.mediaDevices.getUserMedia(c);
-          if (stream) break;
-        } catch (e) {}
+          return await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+          lastError = err;
+        }
       }
-      if (!stream) throw new Error('Camera permission denied.');
-
-      mediaStream = stream;
-      video.srcObject = mediaStream;
-      await new Promise(res => {
-        if (video.readyState >= 2) res();
-        else video.onloadedmetadata = res;
-      });
-      await video.play();
-
-      overlay.width = video.videoWidth || 640;
-      overlay.height = video.videoHeight || 480;
-
-      isCameraActive = true;
-      $('cam-btn-text').textContent = 'Active';
-      $('btn-start-cam').classList.replace('bg-[#2563eb]', 'bg-emerald-600');
-      $('btn-checkin').disabled = false;
-      $('btn-checkout').disabled = false;
-      $('btn-enroll').disabled = false;
-      $('status-badge').textContent = 'Ready';
-      $('status-badge').className = 'px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-
-      startOverlayLoop();
-
-      loadFaceApiModels().then(() => {
-        if (isCameraActive) say('128D Face Model Ready. Align face & tap Check-In/Out.', '');
-      }).catch(err => {
-        if (isCameraActive) say('Model Warning: ' + err.message, 'bad');
-      });
+      throw lastError || new Error('Unable to access front camera.');
     }
 
-    $('btn-start-cam').onclick = async () => {
+    async function startCamera() {
+      if (isCameraActive) return;
       try {
-        say('Starting Front Camera…');
-        await initCamera();
+        setTelemetry('scan', 'INITIALIZING CAMERA…');
+        setStatusBadge('active');
+        say('Requesting front camera access…');
+
+        mediaStream = await openFrontCameraStream();
+        video.srcObject = mediaStream;
+        await video.play();
+        isCameraActive = true;
+        syncCanvasSize();
+
+        $('cam-btn-text').textContent = 'Stop';
+        $('cam-btn-icon').className = 'fa-solid fa-video-slash text-[10px] sm:text-xs';
+
+        await loadFaceApiModels();
+        setTelemetry('scan', 'SEARCHING FACE…');
+        setStatusBadge('active');
+        setActionButtonsEnabled(true);
+        startBackgroundTracking();
+        say('Camera active. Center your face and tap Check-In or Check-Out.', 'ok');
       } catch (err) {
-        say('Camera Error: ' + err.message, 'bad');
+        setTelemetry('bad', 'CAMERA ERROR');
+        setStatusBadge('failed');
+        say(err.message || 'Unable to start camera.', 'bad');
       }
+    }
+
+    function stopCamera() {
+      stopBackgroundTracking();
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      video.srcObject = null;
+      isCameraActive = false;
+      isScanningBusy = false;
+      setActionButtonsEnabled(false);
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      $('cam-btn-text').textContent = 'Start';
+      $('cam-btn-icon').className = 'fa-solid fa-video text-[10px] sm:text-xs';
+      setTelemetry('warn', 'CAMERA STANDBY');
+      setStatusBadge('standby');
+      say('Tap "Start" to activate front camera terminal.');
+    }
+
+    $('btn-start-cam').onclick = () => {
+      if (isCameraActive) stopCamera();
+      else startCamera();
     };
 
     $('btn-mesh-toggle').onclick = () => {
       showMesh = !showMesh;
+      $('btn-mesh-toggle').classList.toggle('bg-sky-600/85', showMesh);
+      $('btn-mesh-toggle').classList.toggle('bg-gray-800/85', !showMesh);
       if (!showMesh) ctx.clearRect(0, 0, overlay.width, overlay.height);
+      else if (isCameraActive) drawSearchingGuide();
     };
 
-    /* Supabase Directory & Attendance */
-    async function refreshPersonnel() {
-      if (!supabaseClient) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b]">Configure Supabase keys in script to sync cloud users.</li>';
-        return;
-      }
-      const { data, error } = await supabaseClient.from('personnel').select('*').order('created_at', { ascending: false });
-      if (error) {
-        $('list').innerHTML = `<li class="py-2.5 text-center text-xs text-rose-400">${error.message}</li>`;
-        return;
-      }
-      enrolledUsers = data || [];
-      if (!enrolledUsers.length) {
-        $('list').innerHTML = '<li class="py-2.5 text-center text-xs text-[#64748b] italic">No enrolled personnel yet.</li>';
-        return;
-      }
-      $('list').innerHTML = enrolledUsers.map(u => `
-        <li class="py-2 flex items-center justify-between text-xs">
-          <div>
-            <div class="font-semibold text-white">${u.name}</div>
-            <div class="text-[10px] text-[#64748b] font-mono">${u.employee_id} • ${u.default_shift || 'Day Shift'}</div>
-          </div>
-          <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-mono">128D</span>
-        </li>
-      `).join('');
-    }
-
-    async function refreshLogs() {
-      if (!supabaseClient) return;
-      const { data, error } = await supabaseClient.from('attendance_logs').select('*').order('timestamp', { ascending: false }).limit(20);
-      if (error || !data?.length) return;
-      $('logs-list').innerHTML = data.map(row => `
-        <div class="px-2.5 py-1.5 rounded-lg bg-[#0a0c10] border border-[#1f293d] flex items-center justify-between text-[11px]">
-          <div>
-            <span class="font-semibold text-white">${row.name}</span>
-            <span class="text-[#64748b] font-mono ml-1">(${row.employee_id})</span>
-            <div class="text-[10px] text-gray-400">${row.shift} • ${new Date(row.timestamp).toLocaleTimeString()}</div>
-          </div>
-          <span class="px-2 py-0.5 rounded font-semibold ${row.event_type === 'Check-In' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-blue-500/15 text-blue-400'}">
-            ${row.event_type}
-          </span>
-        </div>
-      `).join('');
-    }
-
-    $('btn-refresh-list').onclick = refreshPersonnel;
-
-    $('btn-enroll').onclick = async () => {
-      const name = $('enroll-name').value.trim();
-      const empId = $('enroll-id').value.trim();
-      const shift = $('enroll-shift').value;
-      if (!name || !empId) {
-        say('Enter both Full Employee Name and ID Number.', 'bad');
-        return;
-      }
-      try {
-        say('Capturing 3-sample 128D face embedding…');
-        const embedding = await captureFaceEmbedding(video, 3);
-        if (!supabaseClient) {
-          enrolledUsers.unshift({ name, employee_id: empId, default_shift: shift, embedding });
-          say(`Enrolled ${name} locally (configure Supabase for cloud persistence).`, 'ok');
-        } else {
-          const { error } = await supabaseClient.from('personnel').insert({
-            name, employee_id: empId, default_shift: shift, embedding
-          });
-          if (error) throw new Error(error.message);
-          await refreshPersonnel();
-          say(`Enrolled ${name} (${empId}) to cloud.`, 'ok');
-        }
-        $('enroll-name').value = '';
-        $('enroll-id').value = '';
-      } catch (err) {
-        say(err.message, 'bad');
-      }
-    };
-
+    /* =========================================================================
+       ATTENDANCE CHECK-IN / CHECK-OUT & MULTI-SAMPLE ENROLLMENT
+       ========================================================================= */
     async function handleAttendance(eventType) {
-      const shift = $('verify-shift').value;
-      const threshold = Number($('thr').value) || 0.38;
+      if (isScanningBusy || !isCameraActive) return;
+      isScanningBusy = true;
+      setActionButtonsEnabled(false);
+      setStatusBadge('active');
+
       try {
-        say(`Scanning face for ${eventType}…`);
-        const probe = await captureFaceEmbedding(video, 3);
-        const match = findBestFaceMatch(probe, enrolledUsers, threshold, 0.90);
-        if (!match) {
-          say('Face not recognized. Re-align or enroll in Admin.', 'bad');
-          return;
+        if (!enrolledUsers.length) await refreshPersonnel();
+        if (!enrolledUsers.length) {
+          throw new Error('No enrolled personnel found in cloud directory.');
         }
+
+        const probe = await captureMedianEmbedding(3, 150);
+        const matchResult = findBestMatchWithRunnerUpGuard(probe);
+
+        if (!matchResult.match) {
+          throw new Error(matchResult.reason || 'Face verification failed.');
+        }
+
+        const shift = $('verify-shift').value;
+        const timestamp = new Date().toISOString();
+
         if (supabaseClient) {
           const { error } = await supabaseClient.from('attendance_logs').insert({
-            name: match.user.name,
-            employee_id: match.user.employee_id,
-            shift,
+            full_name: matchResult.user.full_name,
+            id_number: matchResult.user.id_number,
             event_type: eventType,
-            timestamp: new Date().toISOString()
+            shift,
+            similarity: matchResult.similarity,
+            distance: Number(matchResult.distance.toFixed(4)),
+            created_at: timestamp
           });
-          if (error) throw new Error(error.message);
+          if (error) throw error;
           await refreshLogs();
         }
-        say(`${eventType}: ${match.user.name} (${match.user.employee_id}) • dist ${match.distance.toFixed(2)}`, 'ok');
+
+        setStatusBadge('success');
+        setTelemetry('ok', 'VERIFIED');
+        say(`${eventType} verified: ${matchResult.user.full_name} (${matchResult.similarity}% similarity • ${shift})`, 'ok');
       } catch (err) {
-        say(err.message, 'bad');
+        setStatusBadge('failed');
+        setTelemetry('bad', 'VERIFY FAILED');
+        say(err.message || `${eventType} failed.`, 'bad');
+      } finally {
+        isScanningBusy = false;
+        if (isCameraActive) setActionButtonsEnabled(true);
       }
     }
 
     $('btn-checkin').onclick = () => handleAttendance('Check-In');
     $('btn-checkout').onclick = () => handleAttendance('Check-Out');
+
+    $('btn-enroll').onclick = async () => {
+      if (isScanningBusy || !isCameraActive) return;
+      const fullName = $('enroll-name').value.trim();
+      const idNumber = $('enroll-id').value.trim();
+      const defaultShift = $('enroll-shift').value;
+
+      if (!fullName || !idNumber) {
+        say('Enter both Full Employee Name and ID Number before enrolling.', 'bad');
+        return;
+      }
+      if (!supabaseClient) {
+        say('Configure SUPABASE_URL and SUPABASE_ANON_KEY to save enrollments.', 'bad');
+        return;
+      }
+
+      isScanningBusy = true;
+      setActionButtonsEnabled(false);
+      setStatusBadge('active');
+
+      try {
+        const newVector = await captureMedianEmbedding(3, 160);
+
+        const { data: existingRows, error: fetchErr } = await supabaseClient
+          .from('enrolled_personnel')
+          .select('id, full_name, id_number, embedding')
+          .eq('id_number', idNumber)
+          .limit(1);
+
+        if (fetchErr) throw fetchErr;
+
+        if (existingRows && existingRows.length > 0) {
+          const existing = existingRows[0];
+          const existingSamples = extractUserEmbeddings(existing);
+          const updatedSamples = [...existingSamples, newVector].slice(-MAX_SAMPLES_PER_USER);
+
+          const { error: updErr } = await supabaseClient
+            .from('enrolled_personnel')
+            .update({
+              full_name: fullName,
+              default_shift: defaultShift,
+              embedding: updatedSamples
+            })
+            .eq('id', existing.id);
+
+          if (updErr) throw updErr;
+          say(`Updated ${fullName} (${idNumber}) — stored ${updatedSamples.length}/${MAX_SAMPLES_PER_USER} samples.`, 'ok');
+        } else {
+          const { error: insErr } = await supabaseClient
+            .from('enrolled_personnel')
+            .insert({
+              full_name: fullName,
+              id_number: idNumber,
+              default_shift: defaultShift,
+              embedding: [newVector]
+            });
+
+          if (insErr) throw insErr;
+          say(`Enrolled ${fullName} (${idNumber}) with 1/${MAX_SAMPLES_PER_USER} biometric signature.`, 'ok');
+        }
+
+        $('enroll-name').value = '';
+        $('enroll-id').value = '';
+        setStatusBadge('success');
+        await refreshPersonnel();
+      } catch (err) {
+        setStatusBadge('failed');
+        say(err.message || 'Enrollment failed.', 'bad');
+      } finally {
+        isScanningBusy = false;
+        if (isCameraActive) setActionButtonsEnabled(true);
+      }
+    };
+
+    $('btn-refresh-list').onclick = refreshPersonnel;
+    $('btn-refresh-logs').onclick = refreshLogs;
   </script>
 </body>
 </html>
